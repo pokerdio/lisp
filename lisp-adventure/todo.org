@@ -1,0 +1,21 @@
+* misc
+** org mode useful stuff
+   S-TAB cycles global org collapse levels 
+** org mode todo commands
+   M-S-ENTER -> create new todo heading
+   C-c C-t -> cycle todo status
+** emacs integration
+*** TODO collapse s-expression
+*** TODO org mode integration for code structuring/collapse
+** download pomodoro video
+* game
+** TODO display paths
+** TODO name different from symbol
+* matching
+*** negatives 
+**** TODO :not-having
+**** TODO :room-trait-lack
+**** TODO :not 
+     some kind of unitary negator maybe that works everywhere
+
+
