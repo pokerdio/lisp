@@ -28,6 +28,21 @@
       (string-downcase (string sym))
       sym))
 
+(defun sym-lst-to-str-enum (sym-lst)
+  (let ((sym-lst (mapcar #'sym-to-low-str sym-lst)))
+    (cond ((eq 1 (length sym-lst))
+           (sym-to-low-str (car sym-lst)))
+          ((eq 2 (length sym-lst))
+           (format nil "~A and ~A"
+                   (sym-to-low-str (first sym-lst))
+                   (sym-to-low-str (second sym-lst))))
+          (sym-lst
+           (let ((first (first sym-lst))
+                 (last (car (last sym-lst)))
+                 (mid (cdr (butlast sym-lst))))
+             (format nil "~A~{, ~A~} and ~A" first mid last))))))
+
+
 (defun cat (&rest args)
   (format nil "~{~a~^~}" (mapcar #' sym-to-low-str args)))
 
@@ -75,3 +90,6 @@
            (lst-replace seq2 src dest)))
         (t (cons (car seq)
                  (lst-replace (cdr seq) src dest)))))
+
+
+

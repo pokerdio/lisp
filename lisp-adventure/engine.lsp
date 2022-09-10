@@ -1,3 +1,9 @@
+(defun go-room (room msg)
+  (p msg)
+  (setf *r* room)
+  (p (thing-desc *r*)))
+
+
 (defun continue-command ()
   (setf *command-handled* nil))
 
@@ -292,11 +298,11 @@ intended use with sorted lists"
       (funcall (car f) com))))
 
 (defun game-loop ()
-  (p (thing-desc *r*))
-  (terpri)
-  (do ((com (tokenize-string (game-read-line))
-            (tokenize-string (game-read-line))))
-      ((equal com '(quit)) t)
-    (process-commands com)
-    (terpri)))
-
+  (with-saved-game-globals
+    (p (thing-desc *r*))
+    (terpri)
+    (do ((com (tokenize-string (game-read-line))
+              (tokenize-string (game-read-line))))
+        ((equal com '(quit)) t)
+      (process-commands com)
+      (terpri))))

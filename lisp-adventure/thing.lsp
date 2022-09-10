@@ -3,19 +3,32 @@
          :initform (error "thing must has name")
          :accessor thing-name)
    (desc :initarg :description
-         :initform nil)
+         :initform nil
+         :accessor thing-description)
    (traits :initarg :traits
            :initform nil
            :accessor thing-traits)
    (owner :initarg :owner
           :initform nil
           :accessor thing-owner)
-   (alias :initarg :alias
-          :initform nil
-          :accessor thing-alias)
    (contents :initarg :contents
              :initform nil
              :accessor thing-contents)))
+
+(macrolet ((thing-sym-reader (&rest accessors)
+             (cons 'progn
+                   (mapcar #'(lambda (accessor)
+                               `(defmethod ,accessor ((sym symbol))
+                                  (let ((thing (get-thing sym)))
+                                    (,accessor thing))))
+                           accessors))))
+  (thing-sym-reader thing-name thing-description thing-traits thing-owner thing-contents))
+
+
+
+
+
+
 
 
 (defun get-thing (thing-sym)
@@ -41,10 +54,21 @@
 (defun del-trait (thing-sym trait)
   (let ((thing (get-thing thing-sym)))
     (with-accessors ((traits thing-traits)) thing
-      (when (has-trait trait thing)
+      (when (has-trait thing trait)
         (if (eq (car traits) trait)
             (setf traits (cdr traits))
             (del-from-down-lst traits trait))))))
+
+(defun thing-exits (thing)
+  (let ((thing (get-thing thing)))
+    (mapcar #'car (remove-if-not (lambda (x) (eq (thing-name thing) (second x))) *go*))))
+
+(defun thing-exits-desc (thing)
+  (let ((exits (thing-exits thing)))
+    (cond ((eq 1 (length exits))
+           (format nil "A path leads towards the ~A." (sym-to-low-str (car exits))))
+          (exits
+           (format nil "Paths lead towards")))))
 
 (defmethod thing-desc ((x thing))
   (with-slots (name desc contents)
@@ -54,7 +78,13 @@
       (when (has-trait x 'room)
         (let ((listables (find-thing-lst contents 'listable)))
           (dolist (i listables)
-            (setf basic-desc (format nil "~A~%There is a ~A here." basic-desc (sym-to-low-str i))))))
+            (setf basic-desc (format nil "~A~%There is a ~A here." basic-desc
+                                     (sym-to-low-str i)))))
+        (let ((exits (thing-exits name)))
+          (when exits
+            (setf basic-desc (format nil "~A~%Path~A lead to the ~A." basic-desc
+                                     (if (> (length exits) 1) "s" "")
+                                     (sym-lst-to-str-enum exits))))))
       basic-desc)))
 
 (defmethod thing-desc ((sym symbol))
@@ -97,20 +127,46 @@
       (setf (thing-contents thing)
             (cons item (thing-contents thing))))))
 
-(defun make-thing (sym traits desc &key (contents nil) (owner nil) (alias nil))
+
+(defun copy-thing (thing)
+  (assert (eq (type-of thing) 'thing))
+  (make-instance 'thing
+                 :name (thing-name thing)
+                 :description (thing-description thing)
+                 :traits (copy-list (thing-traits thing))
+                 :owner (thing-owner thing)
+                 :contents (copy-list (thing-contents thing))))
+
+
+(defun copy-thing-tree (tree)
+  (cond ((consp tree)
+         (cons (copy-thing-tree (car tree))
+               (copy-thing-tree (cdr tree))))
+        ((eq (type-of tree) 'thing)
+         (copy-thing tree))
+        (t tree)))
+
+(defmacro with-saved-game-globals (&body body)
+  `(let ,(mapcar #'(lambda (x) `(,x (copy-thing-tree ,x)))
+                 '(*r* *go* *things*))
+     ,@body))
+
+
+(defun make-thing (sym traits desc &key (contents nil) (owner nil))
   (returning ret (make-instance 'thing
                                 :name sym
                                 :traits traits
                                 :description desc
                                 :owner owner
-                                :alias alias
                                 :contents contents)
+    (setf desc (format nil desc))
     (add-thing ret)
     (when owner
       (add-to-thing sym owner))
     (when contents
       (dolist (x contents)
         (add-to-thing x sym)))))
+
 
 (defun find-thing-lst (thing-sym-lst &rest traits)
   (loop for sym in thing-sym-lst
