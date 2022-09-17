@@ -5,17 +5,58 @@
    M-S-ENTER -> create new todo heading
    C-c C-t -> cycle todo status
 ** emacs integration
-*** TODO collapse s-expression
-*** TODO org mode integration for code structuring/collapse
+*** DONE collapse s-expression
+*** org mode integration for code structuring/collapse
 ** download pomodoro video
 * game
+** TODO stupid (del-thing 'metal-egg 'bird-nest) fails
+   
 ** TODO display paths
 ** TODO name different from symbol
+** TODO death
+** TODO doggo that gives growling notification in nearby rooms
+   if it's not a mobile doggo maybe just stick in room traits at
+   creation
 * matching
-*** negatives 
+** matching multiple words with a * at the end of the pattern
+** negatives 
 **** TODO :not-having
 **** TODO :room-trait-lack
 **** TODO :not 
      some kind of unitary negator maybe that works everywhere
-
+* documentation
+** TODO matching clauses
+   strictly I don't know if it's enforced in code(todo) but the
+   expectation is that the :keyword clauses go at the end after the
+   command matching words
+*** :dasein item [*traits]
+    - "being there" in german (heidegger philosophy meme (I never read
+      the man))
+    
+    - matches an item at the location the player is currently in that
+      has all of *traits
+    
+    - item can be either a variable (single letter symbol (other than
+      t)) or a constant
+    
+    - if item is a free variable, the :dasein clause loops through
+      items in the current room
+*** :having item [*traits]
+    same as :dasein but for the things in the player inventory
+*** :having-or-dasein item [*traits]
+    combination of things owned and in the room
+*** :thing item [*traits]
+    same as dasein but for all the things in the game
+*** :inside item1 item2
+    - matches only if item1 is inside item2
+    - so far item1 and item2 must be bound variables or constants
+*** :in-room {var [*traits] | *const_room_id_list}
+    - if it starts with a variable, it binds the variable to the room
+      id if the room has all the traits in the list of traits
+      following the variable
+    - if there is a list of constants, to match the current room needs
+      to be a member of the list
+*** :room-trait [*traits_list]
+    - the match happens if the current room has all the traits in the
+      list of traits
 

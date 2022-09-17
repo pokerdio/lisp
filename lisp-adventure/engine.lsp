@@ -1,8 +1,11 @@
+(defun die (message)
+  (p message)
+  (setf *death* t))
+
 (defun go-room (room msg)
   (p msg)
   (setf *r* room)
   (p (thing-desc *r*)))
-
 
 (defun continue-command ()
   (setf *command-handled* nil))
@@ -56,12 +59,12 @@
                      s))
   (setf s (mapcar #'(lambda (x)
                       (intern (string-upcase x))) s))
+  (dolist (v *multi-translate*)
+    (setf s (lst-replace s (car v) (cdr v))))
   (setf s (mapcar #'(lambda (x)
                       (let ((a (assoc x *translate*)))
                         (if a (cdr a) x)))
                   s))
-  (dolist (v *multi-translate*)
-    (setf s (lst-replace s (car v) (cdr v))))
   s)
 
 
@@ -135,7 +138,7 @@ intended use with sorted lists"
   (if (var? (car room-lst))
       (progn
         (assert (not (member (car room-lst) *bound-var*)) nil
-                "cannot only match room objects in :in clause, once per")
+                "cannot only match room objects in :in-room clause, once per")
         (let ((*bound-var* (cons (car room-lst) *bound-var*)))
           `(when (has-traits *r* ',(cdr room-lst))
              (let ((,(car room-lst) *r*)))
@@ -175,47 +178,57 @@ intended use with sorted lists"
                              (t (assert nil))))
                    traits)))
 
-(defun build-match-thing-const-wrap (thing-lst body place-function-sym)
+(defun build-match-thing-const-wrap (thing-lst body place-exp)
   (let ((item (car thing-lst))
         (traits (cdr thing-lst)))
     (if traits
-        `(when (and (member ',item (,place-function-sym))
+        `(when (and (member ',item ,place-exp)
                     (has-traits ',item ,(quotify-traits-lst traits)))
            ,@(funcall body))
-        `(when (member ',item (,place-function-sym))
+        `(when (member ',item ,place-exp)
            ,@(funcall body)))))
 
-(defun build-match-thing-var-wrap (thing-lst body place-function-sym)
+(defun build-match-thing-var-wrap (thing-lst body place-exp)
   (let ((var (car thing-lst))
         (traits (cdr thing-lst))
         (traits-list (quotify-traits-lst (cdr thing-lst))))
     (assert (var? var))
     (cond ((and (bound-var? var) (null traits))
-           `(when (member ,var (,place-function-sym))
+           `(when (member ,var ,place-exp)
               ,@(funcall body)))
           ((and (bound-var? var) traits)
-           `(when (and (member ,var (,place-function-sym))
+           `(when (and (member ,var ,place-exp)
                        (has-traits ,var ,traits-list))
               ,@(funcall body)))
           (traits
            (let ((*bound-var* (cons var *bound-var*)))
-             `(dolist (,var (,place-function-sym))
+             `(dolist (,var ,place-exp)
                 (when (and (not *command-handled*)
                            (has-traits ,var ,traits-list))
                   ,@(funcall body)))))
           (t (let ((*bound-var* (cons var *bound-var*)))
-               `(dolist (,var (,place-function-sym))
+               `(dolist (,var ,place-exp)
                   (when (not *command-handled*)
                     ,@(funcall body))))))))
 
 
-(defun build-match-thing (thing-lst body place-function-sym)
+(defun build-match-thing (thing-lst body place-exp)
   (assert thing-lst)
   (if (var? (car thing-lst))
-      (build-match-thing-var-wrap thing-lst body place-function-sym)
-      (build-match-thing-const-wrap thing-lst body place-function-sym)))
+      (build-match-thing-var-wrap thing-lst body place-exp)
+      (build-match-thing-const-wrap thing-lst body place-exp)))
 
 
+
+(defun build-inside-check (item container body)
+  (let ((item (if (var? item)
+                  item (list 'quote item)))
+        (container (if (var? container)
+                       container (list 'quote container))))
+    `(when (and (get-thing ,item)
+                (get-thing ,container)
+                (member ,item (thing-contents ,container)))
+       ,@(funcall body))))
 
 (defun build-match-lambda-body (input-sym pat body)
   (p 'build-match-lambda-body " " input-sym " "  pat) 
@@ -233,15 +246,32 @@ intended use with sorted lists"
                        (build-match-var-wrap input-sym var1 rest-body))
                       ((and var1 (listp var1) (var? (car var1)))
                        (build-match-var-opt-wrap input-sym var1 rest-body))
-                      ((and var1 (listp var1) (eq :in (car var1)))
+                      ((and var1 (listp var1) (eq :in-room (car var1)))
                        (build-match-in-room-wrap (cdr var1) rest-body))
 
                       ((and var1 (listp var1) (eq :dasein (car var1)))
-                       (build-match-thing (cdr var1) rest-body 'dasein))
+                       (build-match-thing (cdr var1) rest-body '(dasein)))
+					  
                       ((and var1 (listp var1) (eq :having (car var1)))
-                       (build-match-thing (cdr var1) rest-body 'having))
-                      ((and var1 (listp var1) (eq :all-things (car var1)))
-                       (build-match-thing (cdr var1) rest-body 'having-or-dasein))
+                       (build-match-thing (cdr var1) rest-body '(having)))
+					  
+                      ((and var1 (listp var1) (eq :thing (car var1)))
+                       (build-match-thing (cdr var1) rest-body '*thing-syms*))
+					  
+                      ((and var1 (listp var1) (eq :having-or-dasein (car var1)))
+                       (build-match-thing (cdr var1) rest-body '(having-or-dasein)))
+
+					  ((and var1 (listp var1) (eq :inside (car var1)))
+					   (assert (eq (length var1) 3) nil ":inside needs exactly two arguments, not ~A" var1)
+					   (let ((a (second var1))
+							 (b (third var1)))
+						 ;; (when (var? a)
+						 ;;   (assert (member a *bound-var*) nil
+                         ;;           ":inside deals only with bound variables, not ~A in ~A" a var1))
+                         ;; (when (var? b)
+						 ;;   (assert (member b *bound-var*) nil
+                         ;;           ":inside deals only with bound variables, not ~A in ~A" b var1))
+                         (build-inside-check a b rest-body)))
 
                       ((and var1 (listp var1) (eq :room-trait (car var1)))
                        (build-room-trait (cdr var1) rest-body))
@@ -303,6 +333,6 @@ intended use with sorted lists"
     (terpri)
     (do ((com (tokenize-string (game-read-line))
               (tokenize-string (game-read-line))))
-        ((equal com '(quit)) t)
+        ((or (equal com '(quit)) *death*) t)
       (process-commands com)
       (terpri))))

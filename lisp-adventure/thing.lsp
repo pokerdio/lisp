@@ -15,6 +15,7 @@
              :initform nil
              :accessor thing-contents)))
 
+
 (macrolet ((thing-sym-reader (&rest accessors)
              (cons 'progn
                    (mapcar #'(lambda (accessor)
@@ -35,6 +36,13 @@
   (if (eq 'thing (type-of thing-sym))
       thing-sym
       (cdr (assoc thing-sym *things*))))
+
+
+(defmethod thing-contents ((thing-sym symbol))
+  (thing-contents (get-thing thing-sym)))
+
+(defmethod (setf thing-contents) ((thing-sym symbol) value)
+  (setf (thing-contents (get-thing thing-sym)) value))
 
 (defmethod has-trait ((thing thing) (trait symbol))
   (not (not (member trait (thing-traits thing)))))
@@ -85,6 +93,11 @@
             (setf basic-desc (format nil "~A~%Path~A lead to the ~A." basic-desc
                                      (if (> (length exits) 1) "s" "")
                                      (sym-lst-to-str-enum exits))))))
+	  (when (has-trait x 'furniture)
+        (let ((listables (find-thing-lst contents 'listable)))
+          (dolist (i listables)
+            (setf basic-desc (format nil "~A~%There is a ~A inside." basic-desc
+                                     (sym-to-low-str i))))))
       basic-desc)))
 
 (defmethod thing-desc ((sym symbol))
@@ -108,8 +121,10 @@
   (let ((sym (thing-name thing)))
     (iflet it (assoc sym *things*)
       (setf (cdr it) thing)
-      (setf *things* (cons (cons (thing-name thing) thing)
-                           *things*)))))
+	  (progn
+		(setf *things* (cons (cons (thing-name thing) thing)
+							 *things*))
+		(setf *thing-syms* (cons sym *thing-syms*))))))
 
 (defun thing-has (thing-sym item)
   (member item (thing-contents (get-thing thing-sym))))
@@ -117,7 +132,7 @@
 
 (defun del-thing (obj-sym from)
   (let ((from (get-thing from)))
-    (assert (member obj-sym (thing-contents from)))
+    (assert (member obj-sym (thing-contents from)) nil "del-thing failed to find contents ~A ~A ~%" obj-sym from)
     (setf (thing-contents from) (remove obj-sym (thing-contents from)))))
 
 (defun add-to-thing (item thing-sym)
@@ -148,7 +163,7 @@
 
 (defmacro with-saved-game-globals (&body body)
   `(let ,(mapcar #'(lambda (x) `(,x (copy-thing-tree ,x)))
-                 '(*r* *go* *things*))
+                 '(*r* *go* *things* *death*))
      ,@body))
 
 

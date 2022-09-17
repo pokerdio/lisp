@@ -10,8 +10,8 @@
   (make-thing 'house-ne '(room grass) "You're in the yard of a small house.")
   (make-thing 'house-s '(room) "You're in the yard of a small house. ~
 The front door of the house lies to the north. ")
-  (make-thing 'house-e '(room) "You're in the yard of a small house. A large oak tree towers above, throwing a pleasant ~
-shade. ")
+  (make-thing 'house-e '(room) "You're in the yard of a small house. A large oak ~
+tree towers above, throwing a pleasant shade. ")
   (make-thing 'house-n '(room grass) "You're behind a small house in the yard. 
 There is a small wooden shed here, built against the house, its door missing.")
   (make-thing 'house-w '(room) "You're in the yard of a small house.")
@@ -22,14 +22,18 @@ There is a small wooden shed here, built against the house, its door missing.")
 larger than you had expected. The floor is covered by a thick rug.")
   (make-thing 'cellar '(room) "You're inside a small, dark cellar with brick walls ~
 lined by empty shelves. Stairs go upward. ")
-  (make-thing 'up-tree '(room)  "You're up in the tree at the place the tree trunk splits in multiple branches, forming a wide flat ~
-bed in the middle, large enough to have a nap in. Large branches continue to the east and west ~
-and are wide enough to walk on. Another turns steeply upward, with enough sub-branches to gain a foothold. ")
-  (make-thing 'tree-top '(room) "You're at the highest point you can climb. You're seeing the ~
+  (make-thing 'up-tree '(room tree)  "You're up in the tree at the place the~
+ tree trunk splits in multiple branches, forming a wide flat ~
+bed in the middle, large enough to have a nap in. Large branches continue ~
+to the east and west and are wide enough to walk on. Another turns steeply ~
+upward, with enough sub-branches to gain a foothold. ")
+  (make-thing 'tree-top '(room tree) "You're at the highest point you can climb. You're seeing the ~
 treetops of an old growth forest in every direction. ")
-  (make-thing 'tree-east-branch '(room) "You're up in the tree, amongs lots of branches, standing on a really large one.")
-  (make-thing 'tree-west-branch '(room) "You're up in the tree, walking along a really large branch. The branch rests on the ~
-roof of the house. The roof is covered by red clay tiles and opens up in a small window. ")
+  (make-thing 'tree-east-branch '(room tree) "You're up in the tree, amongs lots of branches, ~
+standing on a really large one. There's a large bird's nest here. ")
+  (make-thing 'tree-west-branch '(room tree) "You're up in the tree, walking along a really ~
+large branch. The branch rests on the roof of the house. The roof is covered by red clay~
+ tiles and opens up in a small window. ")
   (make-thing 'house-shed '(room) "You're in a small windowless timber planks shed. The ~
 construction is shoddy and some light enters through the boards. There is a work bench ~
 and a couple of shelves."))
@@ -43,16 +47,18 @@ and a couple of shelves."))
   (trail-1-way cellar up house))
 
 (block furniture
+  (make-thing 'bird-nest '(furniture contents-visible contents-accessible)
+              "The nest's a half meter wide round open topped bed of twigs. "
+			  :owner 'tree-east-branch)
   (make-thing 'shed-shelves '(furniture) "A couple of plain planks clumsily fixed to the wall with."
               :owner 'house-shed)
   (make-thing 'yard-oak '(furniture) "A thick old tree, richly foliaged, with a huge bough that splits into thick branches surprisingly low. It looks climbable.")
   (make-thing 'shed-bench '(furniture bench) "A plain four legged work table out of unpolished wood. "
               :owner 'house-shed))
 
-
-
-
 (block pickable
+  (make-thing 'metal-egg '(pickable listable) "A polished bronze ovoid, smooth and shiny except for a tiny hole."
+              :owner 'bird-nest)
   (make-thing 'scythe '(pickable listable heavy) "A rather large, sharp looking scythe."
               :owner 'house-shed)
   (make-thing 'key '(pickable listable) "A small key."
@@ -60,56 +66,66 @@ and a couple of shelves."))
                        (nth (random (length lst)) lst)))
   (make-thing 'hammer '(pickable listable heavy) "A standard claw hammer."
               :owner 'shed-bench)
-  (make-thing 'rug '(listable) "The floor is covered by a black woolen rug painted with bright red and yellow geometric patterns."
+  (make-thing 'rug '(listable) "The floor is covered by a black woolen rug painted with ~
+bright red and yellow geometric patterns."
               :owner 'house))
 
+
 (block movement
-  (match-coms ((enter shed) (enter) :in house-n)
-              (p "You step through the door opening into the shed.")
-              (setf *r* 'house-shed))
+  (match-coms ((enter shed) (enter) :in-room house-n)
+    (p "You step through the door opening into the shed.")
+    (setf *r* 'house-shed))
 
-  (match-coms ((leave shed) (leave) (walk out) (exit) :in house-shed)
-              (p "You step through the door opening into the yard.")
-              (setf *r* 'house-n))
+  (match-coms ((leave shed) (leave) (walk out) (exit) :in-room house-shed)
+    (p "You step through the door opening into the yard.")
+    (setf *r* 'house-n))
 
-  (match-coms ((go north) (north) :in house-s :having key
-               (go north) (north) :in house-s :room-trait door-unlocked)  
-              (if (not (has-trait *r* 'door-unlocked))
-                  (progn (p "You unlock the door and enter the house.")
-                         (add-trait *r* 'door-unlocked)
-						 (setf *r* 'house))
-                  (progn 
-                    (p "You enter the house.")
-                    (setf *r* 'house))))
+  (match-coms ((go north) (north) :in-room house-s :having key
+               (go north) (north) :in-room house-s :room-trait door-unlocked)  
+    (if (not (has-trait *r* 'door-unlocked))
+        (progn (p "You unlock the door and enter the house.")
+               (add-trait *r* 'door-unlocked)
+			   (setf *r* 'house))
+        (progn 
+          (p "You enter the house.")
+          (setf *r* 'house))))
 
-  (match-coms ((go north) (north) :in house-s)
-              (assert (not (has-trait *r* 'door-unlocked)))
-              (p "The door is locked."))
-  (match-coms ((go down) (down) :in house)
-              (if (has-trait *r* 'trapdoor-revealed)
-                  (progn
-                    (go-room 'cellar "You climb down the steep stairs. "))
-                  (p "You can't go there.")))
+  (match-coms ((go north) (north) :in-room house-s)
+    (assert (not (has-trait *r* 'door-unlocked)))
+    (p "The door is locked."))
+  (match-coms ((go down) (down) :in-room house)
+    (if (has-trait *r* 'trapdoor-revealed)
+        (progn
+          (go-room 'cellar "You climb down the steep stairs. "))
+        (p "You can't go there.")))
+
+
+  (match-coms ((go (x north east west south)) ((x north east west south)) :room-trait tree)
+    (if (find-connection x *r*)
+        (continue-command)
+        (die "You lose your grip and fall to your death. ")))
 
   (match-coms ((go (x north west east south down up))
                ((x north west east south down up)))
-              (let ((new-room (find-connection x *r*)))
-                (if new-room
-                    (progn
-                      (go-room new-room (cat "You go " x ".~%")))
-                    (p "You can't go there."))))
+    (let ((new-room (find-connection x *r*)))
+      (if new-room
+          (progn
+            (go-room new-room (cat "You go " x ".~%")))
+          (p "You can't go there."))))
+
+
 
   (match-com (go)
-             (p "Go where?")))  
+    (p "Go where?")))  
 
 (block locks
-  (match-com (unlock door :in house-s :having key)
+  (match-com (unlock door :in-room house-s :having key)
     (if (not (has-trait *r* 'door-unlocked))
         (progn (p "You unlock the door.")
                (add-trait *r* 'door-unlocked))
         (p "It is already unlocked.")))
 
-  (match-com (lock door :in house-s :having key)
+  (match-com (lock door :in-room house-s :having key)
     (if (has-trait *r* 'door-unlocked)
         (p "It wouldn't do any good.")
         (p "It is already locked.")))
@@ -121,22 +137,33 @@ and a couple of shelves."))
     (p "You don't have a key.")))
 
 (block inventory
+
+  (match-com 
+	(del-thing x y)
+    (add-to-thing x 'pc))
+  
   (match-com (take x :dasein x pickable)
     (del-thing x *r*)
     (add-to-thing x 'pc)
     (p "You take the " (sym-to-low-str x) "."))
 
+  (match-com (take x  (from in) y :thing x pickable  :dasein y contents-accessible :inside x y)
+    (p "taker debugger " x y)
+    (del-thing x y)
+    (add-to-thing x 'pc)
+    (p "You take the " (sym-to-low-str x) " from the " (sym-to-low-str y) "."))
+
+  
   (match-com (take x)
     (p "You can't take that."))
 
-  (match-com (drop x :having x)
+  (match-com (drop x :having key)
     (del-thing x 'pc)
     (add-to-thing x *r*)
     (p "You drop the " (sym-to-low-str x) "."))
 
   (match-com (drop x)
     (p "You don't have that."))
-
  
   (match-coms ((inventory) (look inventory) (check inventory) :having x)
     (format t "Your stuff is ~{~A, ~}~A."
@@ -150,16 +177,15 @@ and a couple of shelves."))
   (match-com (look)
     (p (thing-desc *r*)))
 
-
-  (match-coms ((look x :all-things x)
-               (look y :all-things x foo y))
+  (match-coms ((look x :having-or-dasein x)
+               (look x in y :dasein y contents-visible :inside x y))
     (p (thing-desc x)))
 
   (match-com (look x)
-	(p "Can't see that here.")))
+	(p "Can't see that.")))
 
 (block room-house
- (match-com ((push move turn flip) rug :in house :room-trait trapdoor-hidden)
+ (match-com ((push move turn flip) rug :in-room house :room-trait trapdoor-hidden)
    (p "You push the rug, revealing a small trapdoor. ")
    (trail-1-way house down cellar)
    (add-trait *r* 'trapdoor-revealed)

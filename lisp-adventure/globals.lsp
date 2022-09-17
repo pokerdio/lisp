@@ -3,6 +3,8 @@
 (defparameter *ignore-tokens*
   '("" "the" "an" "a"))
 
+(defparameter *death* nil)
+
 (defparameter *translate*
   '((n . north) (s . south) (e . east) (w . west)
     (u . up) (d . down)
@@ -12,15 +14,23 @@
     (examine . look)
     (see . look)
     (watch . look)
+    (inside . in)
+    (within . in)
+    (on . in)
     (q . quit)
     (o . open)
     (i . inventory)
 	(oak . tree)
 	(oaktree . tree)
-	(carpet rug)))
+	(egg . metal-egg)
+	(carpet rug)
+	(nest . bird-nest)))
 
 (defparameter *multi-translate*
-  '(((climb down) . (go down))
+  '(((look at) . (look))
+	((bird nest) . (bird-nest))
+	((metal egg) . (metal-egg))
+	((climb down) . (go down))
     ((climb up) . (go up))
     ((foo bar baz) . (foo bar))
     ((work bench) . (bench))
@@ -30,9 +40,7 @@
 (defparameter *command-handled* nil)
 (defparameter *bound-var* nil)
 (defparameter *things* nil)
-
-
-
+(defparameter *thing-syms* nil)
 
 (defun reverse-dir (dir)
   (cond ((eq dir 'east) 'west)
