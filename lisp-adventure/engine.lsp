@@ -265,12 +265,12 @@ intended use with sorted lists"
                        (assert (eq (length var1) 3) nil ":inside needs exactly two arguments, not ~A" var1)
                        (let ((a (second var1))
                              (b (third var1)))
-                         ;; (when (var? a)
-						 ;;   (assert (member a *bound-var*) nil
-                         ;;           ":inside deals only with bound variables, not ~A in ~A" a var1))
-                         ;; (when (var? b)
-						 ;;   (assert (member b *bound-var*) nil
-                         ;;           ":inside deals only with bound variables, not ~A in ~A" b var1))
+                         (when (var? a)
+						   (assert (member a *bound-var*) nil
+                                   ":inside deals only with bound variables, not ~A in ~A" a var1))
+                         (when (var? b)
+						   (assert (member b *bound-var*) nil
+                                   ":inside deals only with bound variables, not ~A in ~A" b var1))
                          (build-inside-check a b rest-body)))
 
                       ((and var1 (listp var1) (eq :room-trait (car var1)))
@@ -332,7 +332,7 @@ intended use with sorted lists"
     (p (thing-desc *r*))
     (terpri)
     (do ((com (tokenize-string (game-read-line))
-              (tokenize-string (game-read-line))))
-        ((or (equal com '(quit)) *death*) t)
+              (if *death* '(quit) (tokenize-string (game-read-line)))))
+        ((equal com '(quit)) t)
       (process-commands com)
       (terpri))))
