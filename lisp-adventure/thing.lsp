@@ -93,7 +93,7 @@
             (setf basic-desc (format nil "~A~%Path~A lead to the ~A." basic-desc
                                      (if (> (length exits) 1) "s" "")
                                      (sym-lst-to-str-enum exits))))))
-	  (when (has-trait x 'furniture)
+      (when (has-trait x 'furniture)
         (let ((listables (find-thing-lst contents 'listable)))
           (dolist (i listables)
             (setf basic-desc (format nil "~A~%There is a ~A inside." basic-desc
@@ -121,10 +121,10 @@
   (let ((sym (thing-name thing)))
     (iflet it (assoc sym *things*)
       (setf (cdr it) thing)
-	  (progn
-		(setf *things* (cons (cons (thing-name thing) thing)
-							 *things*))
-		(setf *thing-syms* (cons sym *thing-syms*))))))
+      (progn
+        (setf *things* (cons (cons (thing-name thing) thing)
+                             *things*))
+        (setf *thing-syms* (cons sym *thing-syms*))))))
 
 (defun thing-has (thing-sym item)
   (member item (thing-contents (get-thing thing-sym))))

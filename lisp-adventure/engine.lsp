@@ -251,21 +251,21 @@ intended use with sorted lists"
 
                       ((and var1 (listp var1) (eq :dasein (car var1)))
                        (build-match-thing (cdr var1) rest-body '(dasein)))
-					  
+                      
                       ((and var1 (listp var1) (eq :having (car var1)))
                        (build-match-thing (cdr var1) rest-body '(having)))
-					  
+                      
                       ((and var1 (listp var1) (eq :thing (car var1)))
                        (build-match-thing (cdr var1) rest-body '*thing-syms*))
-					  
+                      
                       ((and var1 (listp var1) (eq :having-or-dasein (car var1)))
                        (build-match-thing (cdr var1) rest-body '(having-or-dasein)))
 
-					  ((and var1 (listp var1) (eq :inside (car var1)))
-					   (assert (eq (length var1) 3) nil ":inside needs exactly two arguments, not ~A" var1)
-					   (let ((a (second var1))
-							 (b (third var1)))
-						 ;; (when (var? a)
+                      ((and var1 (listp var1) (eq :inside (car var1)))
+                       (assert (eq (length var1) 3) nil ":inside needs exactly two arguments, not ~A" var1)
+                       (let ((a (second var1))
+                             (b (third var1)))
+                         ;; (when (var? a)
 						 ;;   (assert (member a *bound-var*) nil
                          ;;           ":inside deals only with bound variables, not ~A in ~A" a var1))
                          ;; (when (var? b)

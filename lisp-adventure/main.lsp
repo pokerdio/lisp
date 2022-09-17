@@ -49,7 +49,7 @@ and a couple of shelves."))
 (block furniture
   (make-thing 'bird-nest '(furniture contents-visible contents-accessible)
               "The nest's a half meter wide round open topped bed of twigs. "
-			  :owner 'tree-east-branch)
+              :owner 'tree-east-branch)
   (make-thing 'shed-shelves '(furniture) "A couple of plain planks clumsily fixed to the wall with."
               :owner 'house-shed)
   (make-thing 'yard-oak '(furniture) "A thick old tree, richly foliaged, with a huge bough that splits into thick branches surprisingly low. It looks climbable.")
@@ -85,7 +85,7 @@ bright red and yellow geometric patterns."
     (if (not (has-trait *r* 'door-unlocked))
         (progn (p "You unlock the door and enter the house.")
                (add-trait *r* 'door-unlocked)
-			   (setf *r* 'house))
+               (setf *r* 'house))
         (progn 
           (p "You enter the house.")
           (setf *r* 'house))))
@@ -139,7 +139,7 @@ bright red and yellow geometric patterns."
 (block inventory
 
   (match-com 
-	(del-thing x y)
+    (del-thing x y)
     (add-to-thing x 'pc))
   
   (match-com (take x :dasein x pickable)
@@ -182,7 +182,7 @@ bright red and yellow geometric patterns."
     (p (thing-desc x)))
 
   (match-com (look x)
-	(p "Can't see that.")))
+    (p "Can't see that.")))
 
 (block room-house
  (match-com ((push move turn flip) rug :in-room house :room-trait trapdoor-hidden)
@@ -192,7 +192,7 @@ bright red and yellow geometric patterns."
    (del-trait *r* 'trapdoor-hidden)
 
    (match-com ((open close) trapdoor :room-trait trapdoor-revealed)
-			  (p "To take advantage of the trapdoor, just \"go down\"."))))
+              (p "To take advantage of the trapdoor, just \"go down\"."))))
 
 
 
