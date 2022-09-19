@@ -19,23 +19,21 @@
 (defmacro p (&rest args)
   `(format t (cat ,@args)))
 
-
-
-
-
-(defun sym-to-low-str (sym)
-  (if (symbolp sym)
-      (string-downcase (string sym))
-      sym))
+(defun tostr (sym)
+  (let ((sym (iflet it (assoc sym *sym-to-str*)
+               (cdr it) sym)))
+   (if (symbolp sym)
+       (string-downcase (string sym))
+       sym)))
 
 (defun sym-lst-to-str-enum (sym-lst)
-  (let ((sym-lst (mapcar #'sym-to-low-str sym-lst)))
+  (let ((sym-lst (mapcar #'tostr sym-lst)))
     (cond ((eq 1 (length sym-lst))
-           (sym-to-low-str (car sym-lst)))
+           (tostr (car sym-lst)))
           ((eq 2 (length sym-lst))
            (format nil "~A and ~A"
-                   (sym-to-low-str (first sym-lst))
-                   (sym-to-low-str (second sym-lst))))
+                   (tostr (first sym-lst))
+                   (tostr (second sym-lst))))
           (sym-lst
            (let ((first (first sym-lst))
                  (last (car (last sym-lst)))
@@ -44,7 +42,7 @@
 
 
 (defun cat (&rest args)
-  (format nil "~{~a~^~}" (mapcar #' sym-to-low-str args)))
+  (format nil "~{~a~^~}" (mapcar #' tostr args)))
 
 
 (defun keyword-wrap (lst)

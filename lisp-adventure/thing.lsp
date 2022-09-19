@@ -74,7 +74,7 @@
 (defun thing-exits-desc (thing)
   (let ((exits (thing-exits thing)))
     (cond ((eq 1 (length exits))
-           (format nil "A path leads towards the ~A." (sym-to-low-str (car exits))))
+           (format nil "A path leads towards the ~A." (tostr (car exits))))
           (exits
            (format nil "Paths lead towards")))))
 
@@ -82,12 +82,12 @@
   (with-slots (name desc contents)
       x
     (let ((basic-desc (if desc desc
-                          (format nil "This is a ~A." (sym-to-low-str name)))))
+                          (format nil "This is a ~A." (tostr name)))))
       (when (has-trait x 'room)
         (let ((listables (find-thing-lst contents 'listable)))
           (dolist (i listables)
             (setf basic-desc (format nil "~A~%There is a ~A here." basic-desc
-                                     (sym-to-low-str i)))))
+                                     (tostr i)))))
         (let ((exits (thing-exits name)))
           (when exits
             (setf basic-desc (format nil "~A~%Path~A lead to the ~A." basic-desc
@@ -97,7 +97,10 @@
         (let ((listables (find-thing-lst contents 'listable)))
           (dolist (i listables)
             (setf basic-desc (format nil "~A~%There is a ~A inside." basic-desc
-                                     (sym-to-low-str i))))))
+                                     (tostr i))))))
+      (when (has-trait x 'growl)
+        (setf basic-desc
+              (format nil "~A~%You hear a deep, bone chilling growl close by." basic-desc)))
       basic-desc)))
 
 (defmethod thing-desc ((sym symbol))

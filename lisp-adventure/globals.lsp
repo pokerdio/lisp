@@ -36,6 +36,10 @@
     ((work bench) . (bench))
     ((oak tree) . (tree))))
 
+(defparameter *sym-to-str*
+  '((metal-egg . "metal egg")
+    (bad-dog . "angry large dog")))
+
 (defparameter *go* '())
 (defparameter *command-handled* nil)
 (defparameter *bound-var* nil)

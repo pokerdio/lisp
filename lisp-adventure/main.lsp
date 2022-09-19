@@ -56,19 +56,83 @@ and a couple of shelves."))
   (make-thing 'shed-bench '(furniture bench) "A plain four legged work table out of unpolished wood. "
               :owner 'house-shed))
 
+(let* ((dog-places '(house-w house-nw house-ne))
+       (dog-place (nth (random (length dog-places)) dog-places))
+       (key-places '(house-ne house-se house-nw house-sw house-n house-e house-w))
+       (safe-key-places (set-difference key-places (list dog-place)))
+       (key-place (nth (random (length safe-key-places)) safe-key-places)))
+  (case dog-place
+    (house-w (add-trait 'house-sw 'growl) (add-trait 'house-nw 'growl))
+    (house-nw (add-trait 'house-w 'growl) (add-trait 'house-n 'growl))
+    (house-ne (add-trait 'house-n 'growl) (add-trait 'house-e 'growl))
+    (t (assert nil () "Bad dog in bad dog place." dog-place)))
+  (make-thing 'bad-dog '(furniture listable) "The surprisingly large dog is growling with rage, and getting closer step by step. "
+              :owner dog-place)
+  (make-thing 'key '(pickable listable) "A small key." :owner key-place))
+
+
 (block pickable
   (make-thing 'metal-egg '(pickable listable) "A polished bronze ovoid, smooth and shiny except for a tiny hole."
               :owner 'bird-nest)
   (make-thing 'scythe '(pickable listable heavy) "A rather large, sharp looking scythe."
               :owner 'house-shed)
-  (make-thing 'key '(pickable listable) "A small key."
-              :owner (let ((lst '(house-ne house-se house-nw house-sw house-n house-e house-w)))
-                       (nth (random (length lst)) lst)))
+
   (make-thing 'hammer '(pickable listable heavy) "A standard claw hammer."
               :owner 'shed-bench)
   (make-thing 'rug '(listable) "The floor is covered by a black woolen rug painted with ~
 bright red and yellow geometric patterns."
               :owner 'house))
+
+(block examine
+  (match-com (look)
+    (p (thing-desc *r*)))
+
+  (match-coms ((look x :having-or-dasein x)
+               (look x in y :dasein y contents-visible :inside x y))
+    (p (thing-desc x)))
+
+  (match-com (look x)
+    (p "Can't see that.")))
+
+(match-coms (() (x) (x y) (x y z) (x y z u) (x y z u v) :dasein bad-dog)
+  (die "Before you have a chance to do anything, the large dog attacks you. The fight, if it ~
+can be called that, is one sided and does not last long. "))
+
+(block inventory
+  (match-com 
+      (del-thing x y)
+    (add-to-thing x 'pc))
+  
+  (match-com (take x :dasein x pickable)
+    (del-thing x *r*)
+    (add-to-thing x 'pc)
+    (p "You take the " (sym-to-low-str x) "."))
+
+  (match-com (take x  (from in) y :thing x pickable  :dasein y contents-accessible :inside x y)
+    (p "taker debugger " x y)
+    (del-thing x y)
+    (add-to-thing x 'pc)
+    (p "You take the " (sym-to-low-str x) " from the " (sym-to-low-str y) "."))
+
+  
+  (match-com (take x)
+    (p "You can't take that."))
+
+  (match-com (drop x :having key)
+    (del-thing x 'pc)
+    (add-to-thing x *r*)
+    (p "You drop the " (sym-to-low-str x) "."))
+
+  (match-com (drop x)
+    (p "You don't have that."))
+ 
+  (match-coms ((inventory) (look inventory) (check inventory) :having x)
+    (format t "Your stuff is ~{~A, ~}~A."
+            (mapcar #'sym-to-low-str
+                    (butlast (thing-contents 'pc)))
+            (sym-to-low-str (car (last (thing-contents 'pc))))))
+  (match-coms ((inventory) (look inventory) (check inventory)) ; having nothing
+    (p "You don't have anything. ")))
 
 
 (block movement
@@ -136,65 +200,15 @@ bright red and yellow geometric patterns."
   (match-coms ((lock x) (unlock x))
     (p "You don't have a key.")))
 
-(block inventory
-
-  (match-com 
-    (del-thing x y)
-    (add-to-thing x 'pc))
-  
-  (match-com (take x :dasein x pickable)
-    (del-thing x *r*)
-    (add-to-thing x 'pc)
-    (p "You take the " (sym-to-low-str x) "."))
-
-  (match-com (take x  (from in) y :thing x pickable  :dasein y contents-accessible :inside x y)
-    (p "taker debugger " x y)
-    (del-thing x y)
-    (add-to-thing x 'pc)
-    (p "You take the " (sym-to-low-str x) " from the " (sym-to-low-str y) "."))
-
-  
-  (match-com (take x)
-    (p "You can't take that."))
-
-  (match-com (drop x :having key)
-    (del-thing x 'pc)
-    (add-to-thing x *r*)
-    (p "You drop the " (sym-to-low-str x) "."))
-
-  (match-com (drop x)
-    (p "You don't have that."))
- 
-  (match-coms ((inventory) (look inventory) (check inventory) :having x)
-    (format t "Your stuff is ~{~A, ~}~A."
-            (mapcar #'sym-to-low-str
-                    (butlast (thing-contents 'pc)))
-            (sym-to-low-str (car (last (thing-contents 'pc))))))
-  (match-coms ((inventory) (look inventory) (check inventory)) ; having nothing
-    (p "You don't have anything. "))) 
-
-(block examine
-  (match-com (look)
-    (p (thing-desc *r*)))
-
-  (match-coms ((look x :having-or-dasein x)
-               (look x in y :dasein y contents-visible :inside x y))
-    (p (thing-desc x)))
-
-  (match-com (look x)
-    (p "Can't see that.")))
-
 (block room-house
- (match-com ((push move turn flip) rug :in-room house :room-trait trapdoor-hidden)
-   (p "You push the rug, revealing a small trapdoor. ")
-   (trail-1-way house down cellar)
-   (add-trait *r* 'trapdoor-revealed)
-   (del-trait *r* 'trapdoor-hidden)
+  (match-com ((push move turn flip) rug :in-room house :room-trait trapdoor-hidden)
+    (p "You push the rug, revealing a small trapdoor. ")
+    (trail-1-way house down cellar)
+    (add-trait *r* 'trapdoor-revealed)
+    (del-trait *r* 'trapdoor-hidden)
 
-   (match-com ((open close) trapdoor :room-trait trapdoor-revealed)
-              (p "To take advantage of the trapdoor, just \"go down\"."))))
+    (match-com ((open close) trapdoor :room-trait trapdoor-revealed)
+      (p "To take advantage of the trapdoor, just \"go down\"."))))
 
-
-
-(match-coms (() (x) (x y) (x y z) (x y z u) (x y z u v) )
+(match-coms (() (x) (x y) (x y z) (x y z u) (x y z u v))
   (p "Huh?"))
