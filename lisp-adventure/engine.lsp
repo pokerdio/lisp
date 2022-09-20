@@ -336,3 +336,10 @@ intended use with sorted lists"
         ((equal com '(quit)) t)
       (process-commands com)
       (terpri))))
+
+
+
+(defmacro block-match (match-clauses &rest body)
+  `(block ,@(mapcar #'(lambda (match)
+                        (case (car match)
+                          (match-com (cons 'match-com ())))))))

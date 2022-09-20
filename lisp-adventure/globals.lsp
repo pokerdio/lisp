@@ -33,8 +33,15 @@
     ((climb down) . (go down))
     ((climb up) . (go up))
     ((foo bar baz) . (foo bar))
-    ((work bench) . (bench))
-    ((oak tree) . (tree))))
+    ((work bench) . (shed-bench))
+    ((bench) . (shed-bench))
+    ((oak tree) . (tree))
+    ((angry large dog) . (bad-dog))
+    ((angry bad dog) . (bad-dog))
+    ((large dog) . (bad-dog))
+    ((angry dog) . (bad-dog))
+    ((bad dog) . (bad-dog))
+    ((dog) . (bad-dog))))
 
 (defparameter *sym-to-str*
   '((metal-egg . "metal egg")

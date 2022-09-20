@@ -26,22 +26,15 @@
   (thing-sym-reader thing-name thing-description thing-traits thing-owner thing-contents))
 
 
-
-
-
-
-
-
 (defun get-thing (thing-sym)
   (if (eq 'thing (type-of thing-sym))
       thing-sym
       (cdr (assoc thing-sym *things*))))
 
+;; (defmethod thing-contents ((thing-sym symbol))
+;;   (thing-contents (get-thing thing-sym)))
 
-(defmethod thing-contents ((thing-sym symbol))
-  (thing-contents (get-thing thing-sym)))
-
-(defmethod (setf thing-contents) ((thing-sym symbol) value)
+(defmethod (setf thing-contents) (value (thing-sym symbol))
   (setf (thing-contents (get-thing thing-sym)) value))
 
 (defmethod has-trait ((thing thing) (trait symbol))
@@ -50,8 +43,20 @@
 (defmethod has-trait ((thing-sym symbol) (trait symbol))
   (has-trait (get-thing thing-sym) trait))
 
+
+(defun split-! (trait-lst)
+  (iflet it (position '! trait-lst)
+    (list (subseq trait-lst 0 it)
+          (subseq trait-lst (1+ it)))
+    (list trait-lst nil)))
+
 (defun has-traits (thing-sym trait-lst)
-  (every (lambda (trait) (has-trait thing-sym trait)) trait-lst))
+  (let* ((lst (split-! trait-lst))
+         (yes (first lst))
+         (no (second lst)))
+    (and 
+     (every (lambda (trait) (has-trait thing-sym trait)) yes)
+     (every (lambda (trait) (not (has-trait thing-sym trait))) no))))
 
 (defun add-trait (thing-sym trait)
   (let ((thing (get-thing thing-sym)))
@@ -66,6 +71,10 @@
         (if (eq (car traits) trait)
             (setf traits (cdr traits))
             (del-from-down-lst traits trait))))))
+
+(defun swap-trait (thing-sym old-trait new-trait)
+  (del-trait thing-sym old-trait)
+  (add-trait thing-sym new-trait))
 
 (defun thing-exits (thing)
   (let ((thing (get-thing thing)))
@@ -84,10 +93,12 @@
     (let ((basic-desc (if desc desc
                           (format nil "This is a ~A." (tostr name)))))
       (when (has-trait x 'room)
-        (let ((listables (find-thing-lst contents 'listable)))
-          (dolist (i listables)
-            (setf basic-desc (format nil "~A~%There is a ~A here." basic-desc
-                                     (tostr i)))))
+        (if (has-trait x 'grass)
+            (setf basic-desc (format nil "~A~%The place is overrun with overgrown grass." basic-desc))
+            (let ((listables (find-thing-lst contents 'listable)))
+              (dolist (i listables)
+                (setf basic-desc (format nil "~A~%There is a ~A here." basic-desc
+                                         (tostr i))))))
         (let ((exits (thing-exits name)))
           (when exits
             (setf basic-desc (format nil "~A~%Path~A lead to the ~A." basic-desc
@@ -138,6 +149,11 @@
     (assert (member obj-sym (thing-contents from)) nil "del-thing failed to find contents ~A ~A ~%" obj-sym from)
     (setf (thing-contents from) (remove obj-sym (thing-contents from)))))
 
+
+(defun move-thing (obj-sym from to)
+  (del-thing obj-sym from)
+  (add-to-thing obj-sym to))
+
 (defun add-to-thing (item thing-sym)
   (setf (thing-owner (get-thing item)) thing-sym)
   (when (not (thing-has thing-sym item))
@@ -169,6 +185,12 @@
                  '(*r* *go* *things* *death*))
      ,@body))
 
+(defun tostr (sym)
+  (let ((sym (iflet it (assoc sym *sym-to-str*)
+               (cdr it) sym)))
+   (if (symbolp sym)
+       (string-downcase (string sym))
+       sym)))
 
 (defun make-thing (sym traits desc &key (contents nil) (owner nil))
   (returning ret (make-instance 'thing

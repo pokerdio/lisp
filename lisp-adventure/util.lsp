@@ -19,13 +19,6 @@
 (defmacro p (&rest args)
   `(format t (cat ,@args)))
 
-(defun tostr (sym)
-  (let ((sym (iflet it (assoc sym *sym-to-str*)
-               (cdr it) sym)))
-   (if (symbolp sym)
-       (string-downcase (string sym))
-       sym)))
-
 (defun sym-lst-to-str-enum (sym-lst)
   (let ((sym-lst (mapcar #'tostr sym-lst)))
     (cond ((eq 1 (length sym-lst))
