@@ -110,6 +110,7 @@ bright red and yellow geometric patterns."
                (look x :dasein x listable heavy :room-trait grass)
                (look x in y :dasein y contents-visible :inside x y))
     (p (thing-desc x))))
+
 (block-match on-the-beach (:room-trait beach)
   (match-com (look (beach north))
     (p "A clean, picture perfect beach, with clear greenish waves lazily crashing against it. In the distance an island beckons."))
@@ -117,10 +118,12 @@ bright red and yellow geometric patterns."
     (die "You push the boat in the water and jump in, then start rowing for the island. You notice the boat is taking in water halfway through, about as time as it occurs to you you can't swim."))
   (match-com ((enter launch) boat :dasein (boat ! leaking))
     (p "You push the boat in the water and jump in. Rowing to the island under the summer sun is quite enjoyable.")))
+
 (block room-active-effect
   (match-coms (() (x) (x y) (x y z) (x y z u) (x y z u v) :dasein bad-dog)
     (die "Before you have a chance to do anything, the large dog attacks you. The fight, if it ~
 can be called that, is one sided and does not last long. ~%")))
+
 (block inventory
   (match-com (take x :dasein x pickable)
     (move-thing x *r* 'pc)
@@ -148,6 +151,7 @@ can be called that, is one sided and does not last long. ~%")))
             (tostr (car (last (thing-contents 'pc))))))
   (match-coms ((inventory) (look inventory) (check inventory)) ; having nothing
     (p "You don't have anything. ")))
+
 (block movement
   (match-coms ((enter shed) (enter) :in-room house-n)
     (p "You step through the door opening into the shed.")
@@ -199,7 +203,8 @@ can be called that, is one sided and does not last long. ~%")))
       (setf *r* other-place)))
 
   (match-com (go)
-    (p "Go where?")))  
+    (p "Go where?")))
+
 (block locks
   (match-com (unlock door :in-room house-s :having key)
     (if (not (has-trait *r* 'door-unlocked))
@@ -217,6 +222,7 @@ can be called that, is one sided and does not last long. ~%")))
 
   (match-coms ((lock x) (unlock x))
     (p "You don't have a key.")))
+
 (block room-house
   (match-com ((push move turn flip) rug :in-room house :room-trait trapdoor-hidden)
     (p "You push the rug, revealing a small trapdoor. ")
@@ -224,6 +230,7 @@ can be called that, is one sided and does not last long. ~%")))
     (swap-trait *r* 'trapdoor-revealed 'trapdoor-hidden)
     (match-com ((open close) trapdoor :room-trait trapdoor-revealed)
       (p "To take advantage of the trapdoor, just \"go down\"."))))
+
 (block-match tree-west-branch (:in-room tree-west-branch)
   (match-com (break window  :room-trait window-intact)
     (p "You're afraid breaking the glass empty handed could get you hurt."))
@@ -260,6 +267,7 @@ can be called that, is one sided and does not last long. ~%")))
     (p "The window does not open from outside the house."))
   (match-com (open window :room-trait  window-open)
     (p "The window is already open.")))
+
 (block-match house-attic (:in-room house-attic)
   (match-com (look ladder :room-trait ladder-up)
     (p "The collapsible ladder is raised. "))
@@ -272,12 +280,14 @@ can be called that, is one sided and does not last long. ~%")))
     (p "You lower the ladder.")
     (swap-trait *r* 'ladder-up 'ladder-down)
     (trail house-attic down house)))
+
 (block misc
   (match-coms ((mow grass scythe)
                (mow grass with scythe)
                (mow grass) :room-trait grass :having scythe)
     (p "You mow the grass.")
     (del-trait *r* 'grass)))
+
 (block catch-failures
   (match-coms ((mow) (mow x :room-trait ! grass))
     (p "Mow what?"))
