@@ -1,5 +1,6 @@
 (defun die (message)
   (p message)
+  (p "~%You die.~%")
   (setf *death* t))
 
 (defun go-room (room msg)
@@ -48,7 +49,7 @@
   (member sym '(x y z a b c d e f g h i j k l m n o p q r s u v w)))
 
 (defun bound-var? (var)
-  (p (cat "bound-var? " var " " *bound-var* "~%"))
+  ;; (p (cat "bound-var? " var " " *bound-var* "~%"))
   (and (var? var)
        (member var *bound-var*)))
 
@@ -137,7 +138,7 @@ intended use with sorted lists"
 (defun build-match-in-room-wrap (room-lst body)
   (if (var? (car room-lst))
       (progn
-        (assert (not (member (car room-lst) *bound-var*)) nil
+        (assert (member (car room-lst) *bound-var*) nil
                 "cannot only match room objects in :in-room clause, once per")
         (let ((*bound-var* (cons (car room-lst) *bound-var*)))
           `(when (has-traits *r* ',(cdr room-lst))
@@ -177,6 +178,21 @@ intended use with sorted lists"
                              ((symbolp x) (list 'quote x))
                              (t (assert nil))))
                    traits)))
+
+(defun build-match-thing-not (thing-lst body place-exp)
+  (let ((item (car thing-lst))
+        (traits (cdr thing-lst)))
+    (if (var? item)
+        (assert (bound-var? item) nil "negative match requires bound variable ~A~%" thing-lst)
+        (setf item (list 'quote item)))
+    
+    (if traits
+        `(when (or (not (member ,item ,place-exp))
+                   (not (has-traits (car (member ,item ,place-exp))
+                                    ,(quotify-traits-lst traits))))
+           ,@(funcall body))
+        `(when (not (member ,item ,place-exp))
+           ,@(funcall body)))))
 
 (defun build-match-thing-const-wrap (thing-lst body place-exp)
   (let ((item (car thing-lst))
@@ -261,6 +277,12 @@ intended use with sorted lists"
                       ((and var1 (listp var1) (eq :having-or-dasein (car var1)))
                        (build-match-thing (cdr var1) rest-body '(having-or-dasein)))
 
+                      ((and var1 (listp var1) (eq :not-having (car var1)))
+                       (build-match-thing-not (cdr var1) rest-body '(having)))
+
+                      ((and var1 (listp var1) (eq :not-there (car var1)))
+                       (build-match-thing-not (cdr var1) rest-body '(dasein)))                      
+
                       ((and var1 (listp var1) (eq :inside (car var1)))
                        (assert (eq (length var1) 3) nil ":inside needs exactly two arguments, not ~A" var1)
                        (let ((a (second var1))
@@ -338,8 +360,15 @@ intended use with sorted lists"
       (terpri))))
 
 
+(flet ((replace-second (new-value lst)
+         (cons (car lst)
+               (cons new-value (cddr lst)))))
+  (defmacro block-match (block-name match-clauses &body body)
+    `(block ,block-name
+       ,@(mapcar #'(lambda (elm)
+                     (if (member (car elm) '(match-com match-coms))
+                         (replace-second (append (second elm) match-clauses) elm)
+                         elm))
+                 body))))
 
-(defmacro block-match (match-clauses &rest body)
-  `(block ,@(mapcar #'(lambda (match)
-                        (case (car match)
-                          (match-com (cons 'match-com ())))))))
+

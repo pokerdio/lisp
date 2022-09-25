@@ -31,6 +31,13 @@
       thing-sym
       (cdr (assoc thing-sym *things*))))
 
+
+(defun get-owner-list (item-sym) ; gets all the things that own an item - as symbols - can be more
+  (mapcar #'car
+          (remove-if-not #'(lambda (thing-sym)
+                             (member item-sym (thing-contents (car thing-sym))))
+                         *things*)))
+
 ;; (defmethod thing-contents ((thing-sym symbol))
 ;;   (thing-contents (get-thing thing-sym)))
 
@@ -154,10 +161,10 @@
   (del-thing obj-sym from)
   (add-to-thing obj-sym to))
 
-(defun add-to-thing (item thing-sym)
-  (setf (thing-owner (get-thing item)) thing-sym)
-  (when (not (thing-has thing-sym item))
-    (let ((thing (get-thing thing-sym)))
+(defun add-to-thing (item owner-sym)
+  (setf (thing-owner (get-thing item)) owner-sym)
+  (when (not (thing-has owner-sym item))
+    (let ((thing (get-thing owner-sym)))
       (setf (thing-contents thing)
             (cons item (thing-contents thing))))))
 
@@ -211,3 +218,5 @@
 (defun find-thing-lst (thing-sym-lst &rest traits)
   (loop for sym in thing-sym-lst
         when (has-traits sym traits) collect sym))
+
+
