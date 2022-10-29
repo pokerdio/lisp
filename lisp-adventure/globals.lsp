@@ -32,7 +32,6 @@
     ((metal egg) . (metal-egg))
     ((climb down) . (go down))
     ((climb up) . (go up))
-    ((foo bar baz) . (foo bar))
     ((work bench) . (shed-bench))
     ((bench) . (shed-bench))
     ((oak tree) . (tree))

@@ -48,13 +48,17 @@
 (defun var? (sym)
   (member sym '(x y z a b c d e f g h i j k l m n o p q r s u v w)))
 
+(defun free-var? (var)
+  (and (var? var)
+       (not (bound-var? var))))
+
 (defun bound-var? (var)
   ;; (p (cat "bound-var? " var " " *bound-var* "~%"))
   (and (var? var)
        (member var *bound-var*)))
 
 (defun tokenize-string (s)
-  (setf s (uiop:split-string s :separator '(#\  #\Tab #\, #\! #\? #\.)))
+  (setf s (uiop:split-string s :separator '(#\  #\Tab #\, #\! #\? #\. #\" #\+ #\; #\: #\` #\~ #\')))
   (setf s (remove-if #'(lambda (x) (member (string-downcase x)
                                            *ignore-tokens* :test #'string=))
                      s))
@@ -158,18 +162,51 @@ intended use with sorted lists"
           (thing-contents (get-thing 'pc))))
 
 
-;; todo: turn the command pattern from, to:
-;; look :dasein frog 
-;; look (:dasein frog)
-
-
 (defun build-match-dasein-const-wrap (dasein-lst body)
   `(when (intersection ',dasein-lst (dasein))
      ,@(funcall body)))
 
+(defun atom-or-car (lst)
+  (mapcar #'(lambda (x) (if (consp x) (car x) x)) lst))
+
+;;; TODO
+
+(defun wrap-room-data-trait-match (trait pat body)
+  (let* ((freevars (remove-if-not #'free-var? pat))
+         (n (length pat))
+         (*bound-var* (append *bound-var* freevars))
+         (body (funcall body)))
+    (assert (equal freevars (remove-duplicates freevars)) ()
+            "duplicate variable in the data pattern ~A of trait ~A~%" pat trait)
+    `((when (and (eq (length (trait-value *r* ',trait)) ,(length pat))
+                 ,@(loop for i from 0 to (1- (length pat))
+                         as item = (elt pat i)
+                         when (not (member item freevars))
+                           collect `(equal ,(if (var? item) item `(quote ,item)) ; quote syms not (bound) vars
+                                           (elt (trait-value *r* ',trait) ,i))))
+        ,@(if freevars
+              `((symbol-macrolet
+                    ,(mapcar (lambda (var)
+                               `(,var (elt (trait-value *r* ',trait)
+                                           ,(position var pat))))
+                      freevars)
+                  ,@body))
+              body)))))
+
+(defun wrap-room-data-trait-lst-match (trait-lst body)
+  (let* ((trait-lst (remove-if-not #'consp trait-lst))
+         (current-trait (car trait-lst)))
+    (if trait-lst
+        (wrap-room-data-trait-match (car current-trait) (cdr current-trait)
+                                    (lambda ()
+                                      (wrap-room-data-trait-lst-match
+                                       (cdr trait-lst) body)))
+        (funcall body))))
+
 (defun build-room-trait (trait-lst body)
-  `(when (has-traits *r* ',trait-lst)
-     ,@(funcall body)))
+  (let ((traits (atom-or-car trait-lst)))
+    `(when (has-traits *r* ',traits)
+       ,@(wrap-room-data-trait-lst-match trait-lst body))))
 
 (defun quotify-traits-lst (traits)
   `(list ,@(mapcar #'(lambda (x)
@@ -246,6 +283,10 @@ intended use with sorted lists"
                 (member ,item (thing-contents ,container)))
        ,@(funcall body))))
 
+
+
+
+
 (defun build-match-lambda-body (input-sym pat body)
   (p 'build-match-lambda-body " " input-sym " "  pat) 
   (when (listp body)
@@ -258,7 +299,12 @@ intended use with sorted lists"
                          (list
                           (build-match-lambda-body input-sym (cdr pat) body)))))
         (let ((ret
-                (cond ((var? var1)
+                (cond ((eq '* var1)
+                       (assert (every #'consp (cdr pat)) () "* must be last in a pattern")
+                       `(let ((* ,input-sym)
+                              (,input-sym nil))
+                          ,@(funcall rest-body)))
+                      ((var? var1)
                        (build-match-var-wrap input-sym var1 rest-body))
                       ((and var1 (listp var1) (var? (car var1)))
                        (build-match-var-opt-wrap input-sym var1 rest-body))
@@ -315,32 +361,44 @@ intended use with sorted lists"
        (setf *f*
              (append *f*
                      (list (lambda (,com-sym)
+                             ;; (p "attempting match command " ',pat " <" ,com-sym "> ~%")
                              ,(build-match-lambda-body com-sym pat body))))))))
 
+(defun split-before-first (lst &optional (test (lambda (x) (not (consp x)))))
+  (cond ((not lst) (values nil nil))
+        ((funcall test (car lst)) (values nil (copy-list lst)))
+        (t (multiple-value-bind (a b) (split-before-first (cdr lst) test)
+             (values (cons (car lst) a) b)))))
+
 (defun match-comms-unfurl (pats)
-  (setf pats (append pats '(())))
-  (let ((ret nil)
-        (temp nil)
-        (sym-buf nil))
-    (dolist (x pats)
-      (cond ((and (listp x) sym-buf)
-             (setf ret (append ret
-                               (mapcar #'(lambda (pat)
-                                           (append pat sym-buf))
-                                       temp)))
-             (setf temp (list x))
-             (setf sym-buf nil))
-            ((listp x)
-             (setf temp (append temp (list x))))
-            ((symbolp x)
-             (setf sym-buf
-                   (append sym-buf (list x))))))
-    (append ret (butlast temp))))
+  (multiple-value-bind (a b)
+      (split-before-first pats)
+    (mapcar (lambda (lst) (append lst b)) a)))
+
+;; (defun match-comms-unfurl (pats)
+;;   (setf pats (append pats '(())))
+;;   (let ((ret nil)
+;;         (temp nil)
+;;         (sym-buf nil))
+;;     (dolist (x pats)
+;;       (cond ((and (listp x) sym-buf)
+;;              (setf ret (append ret
+;;                                (mapcar #'(lambda (pat)
+;;                                            (append pat sym-buf))
+;;                                        temp)))
+;;              (setf temp (list x))
+;;              (setf sym-buf nil))
+;;             ((listp x)
+;;              (setf temp (append temp (list x))))
+;;             ((symbolp x)
+;;              (setf sym-buf
+;;                    (append sym-buf (list x))))))
+;;     (append ret (butlast temp))))
 
 (defmacro match-coms (pats &body body)
   (let ((pats (match-comms-unfurl pats)))
     `(progn
-       ,@(loop for pat in (remove-if #'symbolp pats)
+       ,@(loop for pat in pats
                collect `(match-com ,pat ,@body)))))
 
 (defun process-commands (com)
@@ -359,7 +417,6 @@ intended use with sorted lists"
       (process-commands com)
       (terpri))))
 
-
 (flet ((replace-second (new-value lst)
          (cons (car lst)
                (cons new-value (cddr lst)))))
@@ -370,5 +427,3 @@ intended use with sorted lists"
                          (replace-second (append (second elm) match-clauses) elm)
                          elm))
                  body))))
-
-

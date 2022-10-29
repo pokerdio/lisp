@@ -8,6 +8,7 @@
    (traits :initarg :traits
            :initform nil
            :accessor thing-traits)
+   (traits-value :initform (make-hash-table))
    (owner :initarg :owner
           :initform nil
           :accessor thing-owner)
@@ -26,30 +27,36 @@
   (thing-sym-reader thing-name thing-description thing-traits thing-owner thing-contents))
 
 
-(defun get-thing (thing-sym)
-  (if (eq 'thing (type-of thing-sym))
-      thing-sym
-      (cdr (assoc thing-sym *things*))))
+(defmethod get-thing ((thing thing))
+  thing)
 
+(defmethod get-thing ((thing-sym symbol))
+  (cdr (assoc thing-sym *things*)))
 
-(defun get-owner-list (item-sym) ; gets all the things that own an item - as symbols - can be more
+ (defun get-owner-list (item-sym) ; gets all the things that own an item - as symbols - can be more
   (mapcar #'car
           (remove-if-not #'(lambda (thing-sym)
                              (member item-sym (thing-contents (car thing-sym))))
                          *things*)))
 
-;; (defmethod thing-contents ((thing-sym symbol))
-;;   (thing-contents (get-thing thing-sym)))
-
 (defmethod (setf thing-contents) (value (thing-sym symbol))
   (setf (thing-contents (get-thing thing-sym)) value))
 
-(defmethod has-trait ((thing thing) (trait symbol))
-  (not (not (member trait (thing-traits thing)))))
 
-(defmethod has-trait ((thing-sym symbol) (trait symbol))
-  (has-trait (get-thing thing-sym) trait))
+(defmethod has-trait ((thing thing) (trait symbol) &optional value)
+  (and (member trait (thing-traits thing))
+       (or (not value)
+           (equal value (gethash trait (slot-value thing 'traits-value))))))
 
+(defmethod has-trait ((thing-sym symbol) (trait symbol) &optional value)
+  (has-trait (get-thing thing-sym) trait value))
+
+
+(defmethod trait-value ((thing thing) (trait symbol))
+  (gethash trait (slot-value thing 'traits-value)))
+
+(defmethod trait-value ((thing symbol) (trait symbol))
+  (trait-value (get-thing thing) trait))
 
 (defun split-! (trait-lst)
   (iflet it (position '! trait-lst)
@@ -65,19 +72,23 @@
      (every (lambda (trait) (has-trait thing-sym trait)) yes)
      (every (lambda (trait) (not (has-trait thing-sym trait))) no))))
 
-(defun add-trait (thing-sym trait)
+(defun add-trait (thing-sym trait &optional value)
   (let ((thing (get-thing thing-sym)))
-    (with-accessors ((traits thing-traits)) thing
+    (with-slots (traits (value-hash traits-value)) thing
       (when (not (member trait traits))
-        (setf traits (cons trait traits))))))
+        (setf traits (cons trait traits)))
+      (if value
+          (setf (gethash trait value-hash) value)
+          (remhash trait value-hash)))))
 
 (defun del-trait (thing-sym trait)
   (let ((thing (get-thing thing-sym)))
-    (with-accessors ((traits thing-traits)) thing
+    (with-slots (traits (value-hash traits-value)) thing
       (when (has-trait thing trait)
         (if (eq (car traits) trait)
             (setf traits (cdr traits))
-            (del-from-down-lst traits trait))))))
+            (del-from-down-lst traits trait))
+        (remhash trait value-hash)))))
 
 (defun swap-trait (thing-sym old-trait new-trait)
   (del-trait thing-sym old-trait)
@@ -100,12 +111,15 @@
     (let ((basic-desc (if desc desc
                           (format nil "This is a ~A." (tostr name)))))
       (when (has-trait x 'room)
-        (if (has-trait x 'grass)
-            (setf basic-desc (format nil "~A~%The place is overrun with overgrown grass." basic-desc))
-            (let ((listables (find-thing-lst contents 'listable)))
-              (dolist (i listables)
-                (setf basic-desc (format nil "~A~%There is a ~A here." basic-desc
-                                         (tostr i))))))
+        (let ((listables))
+          (if (has-trait x 'grass)
+              (progn
+                (setf basic-desc (format nil "~A~%The place is overrun with overgrown grass." basic-desc))
+                (setf listables (find-thing-lst contents 'listable 'grass-visible)))
+              (setf listables (find-thing-lst contents 'listable)))
+          (dolist (i listables)
+            (setf basic-desc (format nil "~A~%There is a ~A here." basic-desc
+                                     (tostr i)))))
         (let ((exits (thing-exits name)))
           (when exits
             (setf basic-desc (format nil "~A~%Path~A lead to the ~A." basic-desc
@@ -171,12 +185,18 @@
 
 (defun copy-thing (thing)
   (assert (eq (type-of thing) 'thing))
-  (make-instance 'thing
-                 :name (thing-name thing)
-                 :description (thing-description thing)
-                 :traits (copy-list (thing-traits thing))
-                 :owner (thing-owner thing)
-                 :contents (copy-list (thing-contents thing))))
+  (let* ((ret (make-instance 'thing
+                             :name (thing-name thing)
+                             :description (thing-description thing)
+                             :traits (copy-list (thing-traits thing))
+                             :owner (thing-owner thing)
+                             :contents (copy-list (thing-contents thing))))
+         (old-hash (slot-value thing 'traits-value))
+         (new-hash (slot-value ret 'traits-value )))
+    (loop for key being each hash-key of old-hash
+          do (setf (gethash key new-hash)
+                   (copy-list (gethash key old-hash))))
+    ret))
 
 
 (defun copy-thing-tree (tree)
@@ -190,7 +210,9 @@
 (defmacro with-saved-game-globals (&body body)
   `(let ,(mapcar #'(lambda (x) `(,x (copy-thing-tree ,x)))
                  '(*r* *go* *things* *death*))
-     ,@body))
+     (let ((*command-handled* nil)
+           (*bound-var* nil))
+      ,@body)))
 
 (defun tostr (sym)
   (let ((sym (iflet it (assoc sym *sym-to-str*)
@@ -202,10 +224,15 @@
 (defun make-thing (sym traits desc &key (contents nil) (owner nil))
   (returning ret (make-instance 'thing
                                 :name sym
-                                :traits traits
+                                :traits (mapcar #'(lambda (x) (if (consp x) (car x) x))
+                                                traits)
                                 :description desc
                                 :owner owner
                                 :contents contents)
+    (let ((hash (slot-value ret 'traits-value)))
+      (loop for lst in traits
+            do (when (consp lst)
+                 (setf (gethash (car lst) hash) (cdr lst)))))
     (setf desc (format nil desc))
     (add-thing ret)
     (when owner
@@ -218,5 +245,3 @@
 (defun find-thing-lst (thing-sym-lst &rest traits)
   (loop for sym in thing-sym-lst
         when (has-traits sym traits) collect sym))
-
-

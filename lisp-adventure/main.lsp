@@ -14,7 +14,7 @@
   (make-thing 'house-ne '(room grass beach) "You're in the yard of a small house. To the north a yellow sanded beach opens up to the sea. In the distance there's a sandy island. ")
   (make-thing 'house-s '(room) "You're in the yard of a small house. ~
 The front door of the house lies to the north. ")
-  (make-thing 'house-e '(room) "You're in the yard of a small house. A large oak ~
+  (make-thing 'house-e '(room grass) "You're in the yard of a small house. A large oak ~
 tree towers above, throwing a pleasant shade. ")
   (make-thing 'house-n '(room grass beach) "You're behind a small house in the yard. ~
 There is a small wooden shed here, built against the house, its door missing. To the north a yellow sanded beach opens up to the sea. In the distance there's a sandy island. ")
@@ -26,7 +26,7 @@ There is a small wooden shed here, built against the house, its door missing. To
   (make-thing 'house '(room trapdoor-hidden) "You're inside the only room of the house. It looks much ~
 larger than you had expected. The floor is covered by a thick rug.")
   (make-thing 'cellar '(room) "You're inside a small, dark cellar with brick walls ~
-lined by empty shelves. Stairs go upward. ")
+lined by empty shelves. Stairs go upward and downward. ")
   (make-thing 'up-tree '(room tree)  "You're up in the tree at the place the~
  tree trunk splits in multiple branches, forming a wide flat ~
 bed in the middle, large enough to have a nap in. Large branches continue ~
@@ -42,7 +42,8 @@ tiles and opens up in a small window. ")
   (make-thing 'house-shed '(room) "You're in a small windowless timber planks shed. The ~
 construction is shoddy and some light enters through the boards. There is a work bench ~
 and a couple of shelves.")
-  (make-thing 'island '(room) "You're on the small sandy island. Golden sand dunes is everything you see. Besides the sea. "))
+  (make-thing 'island '(room) "You're on the small sandy island. Golden sand dunes is everything you see. Besides the sea. ")
+  (make-thing 'labyrinth '(room (position 0)) "You're in a square room tiled with large slabs of stone. The door you used to enter has closed behind you and there are two exits."))
 
 (block trails
   (trail house-e up up-tree up tree-top)
@@ -51,7 +52,8 @@ and a couple of shelves.")
   (trail-1-way (house-n enter house-shed exit house-n))
   (trail house-s e house-se n house-e n house-ne w house-n w house-nw
          s house-w s house-sw e house-s n house)
-  (trail-1-way cellar up house))
+  (trail-1-way cellar up house)
+  (trail-1-way house-s south labyrinth))
 
 ;; ----------- THINGS ----------
 
@@ -82,7 +84,7 @@ and a couple of shelves.")
     (add-to-thing 'boat
                   (car (set-difference '(house-nw house-ne) (list dog-place))))
     (add-to-thing 'boat 'island) ; the boat is owned by two items, sue me
-    (make-thing 'bad-dog '(furniture listable) "The surprisingly large dog is growling with rage, and getting closer step by step. "
+    (make-thing 'bad-dog '(furniture listable grass-visible) "The surprisingly large dog is growling with rage, and getting closer step by step. "
                 :owner dog-place)
     (make-thing 'key '(pickable listable) "A small key." :owner key-place)))
 
@@ -101,12 +103,52 @@ bright red and yellow geometric patterns."
 
 ;; ----------- COMMANDS ----------
 
+(block dbg
+  (match-com (dbg save)
+    (game-loop))
+
+  (match-com (dbg :room-trait (position 0) :in-room labyrinth)
+    (p "checks out"))
+  (match-com (dbg room) (p "room " *r* " " (type-of *r*)  "~%")))
+
+(block-match labyrinth (:in-room labyrinth) ;on top because it's a place with its custom rules
+  (match-com (look :room-trait (position x))
+    (p "Hello there! pos is " x))
+
+  (match-coms ((go right) (right) :room-trait (position x))
+    (setf x (1+ x))
+    (if (> (abs x) 3)
+        (progn (p "You leave the labyrinth.")
+               (setf *r* 'house-s))
+        (p "you move to room number " x)))
+
+  (match-coms ((go left) (left) :room-trait (position x))
+    (setf x (1- x))
+    (if (> (abs x) 3)
+        (progn (p "You leave the labyrinth.")
+               (setf *r* 'house-s))
+        (p "you move to room number " x)))
+
+  (match-coms ((go (north south west east)) ((north south west east)))
+    (p "You seem to have lost a sense of geographical orientation. Standing with the back towards where you came from, you can choose to go left or right. "))
+  
+  (match-com (q *)
+    (p "special quit")
+    (continue-command))
+  (match-com (*)
+    (p "I wouldn't bother doing anything except going, looking without parameters and quitting"))
+  (defmethod thing-desc ((lab (eql (get-thing 'labyrinth))))
+    (p "Hello there!"))
+  )
+
+
 (block examine
   (match-com (look)
     (p (thing-desc *r*)))
 
   (match-coms ((look x :having x)
                (look x :dasein x :room-trait ! grass)
+               (look x :dasein x grass-visible :room-trait grass)
                (look x :dasein x listable heavy :room-trait grass)
                (look x in y :dasein y contents-visible :inside x y))
     (p (thing-desc x))))
@@ -120,7 +162,7 @@ bright red and yellow geometric patterns."
     (p "You push the boat in the water and jump in. Rowing to the island under the summer sun is quite enjoyable.")))
 
 (block room-active-effect
-  (match-coms (() (x) (x y) (x y z) (x y z u) (x y z u v) :dasein bad-dog)
+  (match-com (* :dasein bad-dog)
     (die "Before you have a chance to do anything, the large dog attacks you. The fight, if it ~
 can be called that, is one sided and does not last long. ~%")))
 
@@ -284,17 +326,43 @@ can be called that, is one sided and does not last long. ~%")))
 (block misc
   (match-coms ((mow grass scythe)
                (mow grass with scythe)
+               (use scythe)
+               (use scythe (on with) grass)
                (mow grass) :room-trait grass :having scythe)
     (p "You mow the grass.")
     (del-trait *r* 'grass)))
 
+(match-com (foo (x aa bb cc))
+  (p x))
+
 (block catch-failures
   (match-coms ((mow) (mow x :room-trait ! grass))
     (p "Mow what?"))
-  (match-coms (mow grass :room-trait grass)
+  (match-com (mow grass :room-trait grass)
     (p "Mow with what?"))
-  (match-coms (() (x) (x y) (x y z) (x y z u) (x y z u v))
-    (p "Huh?"))
-
   (match-com (look x)
-    (p "Can't see that.")))
+    (p "Can't see that."))
+  (match-com (*)
+    (p "Huh?")))
+
+
+(match-com (mow grass :room-trait foo (bar 1 x y) (baz x foo y))
+  (p x y))
+
+
+
+(defun foo (x)
+  (P "attempting match command "
+     '(DBG (:ROOM-TRAIT (POSITION 0)) (:IN-ROOM LABYRINTH))
+     " <" x "> ~%")
+  (WHEN (AND x (EQ (CAR x) 'DBG))
+    (LET ((x (CDR x)))
+      (WHEN (HAS-TRAITS *R* '(POSITION))
+        (WHEN
+            (AND (EQ (LENGTH (TRAIT-VALUE *R* 'POSITION)) 1)
+                 (EQUAL '0
+                        (ELT (TRAIT-VALUE *R* 'POSITION) 0)))
+          (WHEN (MEMBER *R* '(LABYRINTH))
+            (WHEN (NOT x)
+              (SETF *COMMAND-HANDLED* T)
+              (P "checks out"))))))))
