@@ -6,7 +6,7 @@
   (load (compile-file "thing.lsp"))
   (load (compile-file "engine.lsp")))
 
-(make-thing 'pc '(pc) "Just plain old you.")
+(make-thing 'pc '(pc (prev-room house-s) (this-room house-s)) "Just plain old you.")
 
 ;; ----------- ROOMS ----------
 
@@ -43,7 +43,8 @@ tiles and opens up in a small window. ")
 construction is shoddy and some light enters through the boards. There is a work bench ~
 and a couple of shelves.")
   (make-thing 'island '(room) "You're on the small sandy island. Golden sand dunes is everything you see. Besides the sea. ")
-  (make-thing 'labyrinth '(room (position 0)) "You're in a square room tiled with large slabs of stone. The door you used to enter has closed behind you and there are two exits."))
+  (make-thing 'labyrinth `(room (map ,(make-labyrinth)))
+"As you enter the hedge maze and admire the well maintained smooth walls you lose your sense of geographical location. "))
 
 (block trails
   (trail house-e up up-tree up tree-top)
@@ -103,6 +104,12 @@ bright red and yellow geometric patterns."
 
 ;; ----------- COMMANDS ----------
 
+(match-com (*)
+  (when (not (eq (trait-value 'pc 'this-room) *r*))
+    (add-trait 'pc 'prev-room (trait-value 'pc 'this-room))
+    (add-trait 'pc 'this-room *r*))
+  (continue-command))
+
 (block dbg
   (match-com (dbg save)
     (game-loop))
@@ -112,33 +119,46 @@ bright red and yellow geometric patterns."
   (match-com (dbg room) (p "room " *r* " " (type-of *r*)  "~%")))
 
 (block-match labyrinth (:in-room labyrinth) ;on top because it's a place with its custom rules
-  (match-com (look :room-trait (position x))
-    (p "Hello there! pos is " x))
-
-  (match-coms ((go right) (right) :room-trait (position x))
-    (setf x (1+ x))
-    (if (> (abs x) 3)
-        (progn (p "You leave the labyrinth.")
-               (setf *r* 'house-s))
-        (p "you move to room number " x)))
-
-  (match-coms ((go left) (left) :room-trait (position x))
-    (setf x (1- x))
-    (if (> (abs x) 3)
-        (progn (p "You leave the labyrinth.")
-               (setf *r* 'house-s))
-        (p "you move to room number " x)))
-
-  (match-coms ((go (north south west east)) ((north south west east)))
-    (p "You seem to have lost a sense of geographical orientation. Standing with the back towards where you came from, you can choose to go left or right. "))
-  
-  (match-com (q *)
-    (p "special quit")
+  (match-com (* :room-trait ! on-enter)
+    (add-trait *r* 'on-enter)
+    (add-trait *r* 'row (list 0))
+    (add-trait *r* 'col (list 0))
+    (add-trait *r* 'dir (list 0 1))
     (continue-command))
-  (match-com (*)
-    (p "I wouldn't bother doing anything except going, looking without parameters and quitting"))
-  (defmethod thing-desc ((lab (eql (get-thing 'labyrinth))))
-    (p "Hello there!"))
+  
+  (match-com (look :room-trait (map m) (row r) (col c))
+    (p "Hello there! pos is " r " " c "~% map is " m "~%"))
+
+  (match-coms ((go (g right left forward back)) ((g right left forward back))
+               :room-trait (map m) (row r) (col c) (dir x y))
+    (psetf r (+ r y) c (+ c x))
+    (case g
+      (back (psetf x (- x) y (- y)))
+      (right (psetf x (- y) y x))
+      (left (psetf x y y (- x))))
+    (when (or (< r 0) (>= r (array-dimension m 0))
+              (< c 0) (>= c (array-dimension m 1)))
+      (p "You leave the labyrinth.")
+      (del-trait *r* 'on-enter)
+      (setf *r* 'house-s)))
+
+  ;; (match-coms ((go left) (left) :room-trait (position x))
+  ;;   (setf x (1- x))
+  ;;   (if (> (abs x) 3)
+  ;;       (progn (p "You leave the labyrinth.")
+  ;;              (setf *r* 'house-s))
+  ;;       (p "you move to room number " x)))
+
+  ;; (match-coms ((go (north south west east)) ((north south west east)))
+  ;;   (p "You seem to have lost a sense of geographical orientation. Standing with the back towards where you came from, you can choose to go left or right. "))
+  
+  ;; (match-com (q *)
+  ;;   (p "special quit")
+  ;;   (continue-command))
+  ;; (match-com (*)
+  ;;   (p "I wouldn't bother doing anything except going, looking without parameters and quitting"))
+  ;; (defmethod thing-desc ((lab (eql (get-thing 'labyrinth))))
+  ;;   (p "Hello there!"))
   )
 
 
@@ -346,23 +366,6 @@ can be called that, is one sided and does not last long. ~%")))
     (p "Huh?")))
 
 
-(match-com (mow grass :room-trait foo (bar 1 x y) (baz x foo y))
-  (p x y))
 
 
 
-(defun foo (x)
-  (P "attempting match command "
-     '(DBG (:ROOM-TRAIT (POSITION 0)) (:IN-ROOM LABYRINTH))
-     " <" x "> ~%")
-  (WHEN (AND x (EQ (CAR x) 'DBG))
-    (LET ((x (CDR x)))
-      (WHEN (HAS-TRAITS *R* '(POSITION))
-        (WHEN
-            (AND (EQ (LENGTH (TRAIT-VALUE *R* 'POSITION)) 1)
-                 (EQUAL '0
-                        (ELT (TRAIT-VALUE *R* 'POSITION) 0)))
-          (WHEN (MEMBER *R* '(LABYRINTH))
-            (WHEN (NOT x)
-              (SETF *COMMAND-HANDLED* T)
-              (P "checks out"))))))))

@@ -82,5 +82,62 @@
         (t (cons (car seq)
                  (lst-replace (cdr seq) src dest)))))
 
+(defun remove-nth (n lst)
+  (if (> n 0)
+      (when lst (cons (car lst)
+                      (remove-nth (1- n) (cdr lst))))
+      (cdr lst)))
 
+
+
+(flet ((pop-random (lst)
+         (let* ((n (random (length lst)))
+                (elt (nth n lst))
+                (rest (remove-nth n lst)))
+           (values elt rest)))
+       (neigh-lst (row col max-row max-col)
+         (let (ret)
+           (when (> row 0)
+             (setf ret (cons (list 'north (1- row) col) ret)))
+           (when (> col 0)
+             (setf ret (cons (list 'west row (1- col)) ret)))
+           (when (< row (1- max-row))
+             (setf ret (cons (list 'south (1+ row) col) ret)))
+           (when (< col (1- max-col))
+             (setf ret (cons (list 'east row (1+ col)) ret)))
+           ret)))
+
+  (defun make-labyrinth ()
+    (let* ((m 5) (n 5) 
+           (v (make-array (list m n) :initial-element nil))
+           (ret (make-array (list m n) :initial-element nil))         
+           (open '((0 1) (1 0))))
+      (setf (aref v 0 0) 'entry)
+      (dotimes (i (1- (* m n)))
+        (multiple-value-bind (expand new-open) (pop-random open)
+          (let* ((row (first expand))
+                 (col (second expand))
+                 (src (pop-random (remove-if-not
+                                   (lambda (x) (aref v (second x) (third x)))
+                                   (neigh-lst row col m n)))))
+            (setf (aref v row col) (first src))
+            (setf open (remove-duplicates
+                        (append new-open
+                                (remove-if
+                                 (lambda (x) (aref v (car x) (cadr x)))
+                                 (mapcar #'cdr (neigh-lst row col m n))))
+                        :test #'equal)))))
+      (dotimes (row m)
+        (dotimes (col n)
+          (let ((dir (aref v row col)))
+            (when (member dir '(east west north south))
+              (push dir (aref ret row col)))
+            (case dir
+              (east (push 'west (aref ret row (1+ col))))
+              (west (push 'east (aref ret row (1- col))))
+              (south (push 'north (aref ret (1+ row) col)))
+              (north (push 'south (aref ret (1- row) col)))))))
+      (push 'east (aref ret (1- m) (1- n)))
+      (push 'west (aref ret 0 0))
+      ret)))
 

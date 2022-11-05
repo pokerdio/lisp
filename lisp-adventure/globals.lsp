@@ -24,7 +24,10 @@
     (oaktree . tree)
     (egg . metal-egg)
     (carpet rug)
-    (nest . bird-nest)))
+    (nest . bird-nest)
+    (ahead . forward)
+    (backward . back)
+    ))
 
 (defparameter *multi-translate*
   '(((look at) . (look))
