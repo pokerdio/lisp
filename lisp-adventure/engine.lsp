@@ -353,13 +353,16 @@ intended use with sorted lists"
 
 
 (defmacro match-com (pat &body body)
-  (let ((pat (keyword-wrap pat))
-        (com-sym (gensym))
-        (body (cons '(setf *command-handled* t) body ))
-        (*bound-var* nil))
+  (let* ((after-com (member :after pat))
+         (flist (if after-com '*f-after* '*f*))
+         (body (if after-com body
+                   (cons '(setf *command-handled* t) body)))
+         (pat (keyword-wrap (remove :after pat)))
+         (com-sym (gensym))
+         (*bound-var* nil))
     `(progn
-       (setf *f*
-             (append *f*
+       (setf ,flist
+             (append ,flist
                      (list (lambda (,com-sym)
                              ;; (p "attempting match command " ',pat " <" ,com-sym "> ~%")
                              ,(build-match-lambda-body com-sym pat body))))))))
@@ -405,7 +408,10 @@ intended use with sorted lists"
   (let ((*command-handled* nil))
     (do ((f *f* (cdr f)))
         ((or (not f) *command-handled*) nil)
-      (funcall (car f) com))))
+      (funcall (car f) com)))
+  (do ((f *f-after* (cdr f)))
+      ((not f) nil)
+    (funcall (car f) com)))
 
 (defun game-loop ()
   (with-saved-game-globals

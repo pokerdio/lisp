@@ -43,8 +43,7 @@ tiles and opens up in a small window. ")
 construction is shoddy and some light enters through the boards. There is a work bench ~
 and a couple of shelves.")
   (make-thing 'island '(room) "You're on the small sandy island. Golden sand dunes is everything you see. Besides the sea. ")
-  (make-thing 'labyrinth `(room (map ,(make-labyrinth)))
-"As you enter the hedge maze and admire the well maintained smooth walls you lose your sense of geographical location. "))
+  (make-thing 'labyrinth `(room (map ,(make-labyrinth))) ""))
 
 (block trails
   (trail house-e up up-tree up tree-top)
@@ -112,54 +111,51 @@ bright red and yellow geometric patterns."
 
 (block dbg
   (match-com (dbg save)
-    (game-loop))
-
-  (match-com (dbg :room-trait (position 0) :in-room labyrinth)
-    (p "checks out"))
-  (match-com (dbg room) (p "room " *r* " " (type-of *r*)  "~%")))
+    (game-loop)))
 
 (block-match labyrinth (:in-room labyrinth) ;on top because it's a place with its custom rules
-  (match-com (* :room-trait ! on-enter)
+  (defun lab-show-path (map row col dirx diry)
+    (let* ((lst (mapcar (lambda (s) (tostr (dir-abs-to-rel dirx diry s)))
+                        (aref map row col)))
+           (n (length lst)))
+      (format t "~a ~{~a~^, ~}." (if (> n 1) "Paths open" "A path opens") lst)))
+  (match-com (* :room-trait ! on-enter :after)
     (add-trait *r* 'on-enter)
-    (add-trait *r* 'row (list 0))
-    (add-trait *r* 'col (list 0))
-    (add-trait *r* 'dir (list 0 1))
+    (add-trait *r* 'row 0)
+    (add-trait *r* 'col 0)
+    (add-trait *r* 'dir 1 0)
+    (p "As you enter the hedge maze and admire the neatly trimmed shrubbery walls you realize you have lost your sense of geographical orientation.~%")
+    (lab-show-path (car (trait-value 'labyrinth 'map)) 0 0 1 0)
     (continue-command))
-  
-  (match-com (look :room-trait (map m) (row r) (col c))
-    (p "Hello there! pos is " r " " c "~% map is " m "~%"))
+  (match-coms ((look) (go i) ((right left forward back)) :room-trait (map m) (row r) (col c) (dir x y) :after)
+    (p "Hedge walls everywhere. ")
+    (lab-show-path m r c x y))
 
+  (match-com (dbg map :room-trait (map m))
+    (p "map " m "~%"))
+  (match-com (dbg pos :room-trait (row r) (col c) (dir x y))
+    (p "row " r " col " c "dirxy " x y "~%"))
+  (match-com (dbg room-trait)
+    (p "room traits " (thing-traits *r*) "~%"))
   (match-coms ((go (g right left forward back)) ((g right left forward back))
                :room-trait (map m) (row r) (col c) (dir x y))
-    (psetf r (+ r y) c (+ c x))
     (case g
       (back (psetf x (- x) y (- y)))
       (right (psetf x (- y) y x))
       (left (psetf x y y (- x))))
+    (let ((dir (cdr (assoc (+ x (* 2 y))
+                           '((1 . east)
+                             (-1 . west)
+                             (2 . south)
+                             (-2 . north))))))
+      (if (member dir (aref m r c))
+          (psetf r (+ r y) c (+ c x))
+          (p "Oops! You run into a bush wall blocking your way.~%")))
     (when (or (< r 0) (>= r (array-dimension m 0))
               (< c 0) (>= c (array-dimension m 1)))
       (p "You leave the labyrinth.")
       (del-trait *r* 'on-enter)
-      (setf *r* 'house-s)))
-
-  ;; (match-coms ((go left) (left) :room-trait (position x))
-  ;;   (setf x (1- x))
-  ;;   (if (> (abs x) 3)
-  ;;       (progn (p "You leave the labyrinth.")
-  ;;              (setf *r* 'house-s))
-  ;;       (p "you move to room number " x)))
-
-  ;; (match-coms ((go (north south west east)) ((north south west east)))
-  ;;   (p "You seem to have lost a sense of geographical orientation. Standing with the back towards where you came from, you can choose to go left or right. "))
-  
-  ;; (match-com (q *)
-  ;;   (p "special quit")
-  ;;   (continue-command))
-  ;; (match-com (*)
-  ;;   (p "I wouldn't bother doing anything except going, looking without parameters and quitting"))
-  ;; (defmethod thing-desc ((lab (eql (get-thing 'labyrinth))))
-  ;;   (p "Hello there!"))
-  )
+      (setf *r* 'house-s))))
 
 
 (block examine
@@ -213,6 +209,9 @@ can be called that, is one sided and does not last long. ~%")))
             (tostr (car (last (thing-contents 'pc))))))
   (match-coms ((inventory) (look inventory) (check inventory)) ; having nothing
     (p "You don't have anything. ")))
+
+(match-com (wait)
+  (p "...waiting..."))
 
 (block movement
   (match-coms ((enter shed) (enter) :in-room house-n)
@@ -364,8 +363,6 @@ can be called that, is one sided and does not last long. ~%")))
     (p "Can't see that."))
   (match-com (*)
     (p "Huh?")))
-
-
 
 
 

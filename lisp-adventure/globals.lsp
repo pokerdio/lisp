@@ -1,5 +1,6 @@
 (defparameter *r* 'house-s)
 (defparameter *f* nil)
+(defparameter *f-after* nil)
 (defparameter *ignore-tokens*
   '("" "the" "an" "a"))
 
@@ -25,6 +26,7 @@
     (egg . metal-egg)
     (carpet rug)
     (nest . bird-nest)
+    (front . forward)
     (ahead . forward)
     (backward . back)
     ))

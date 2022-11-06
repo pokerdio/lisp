@@ -72,7 +72,7 @@
      (every (lambda (trait) (has-trait thing-sym trait)) yes)
      (every (lambda (trait) (not (has-trait thing-sym trait))) no))))
 
-(defun add-trait (thing-sym trait &optional value)
+(defun add-trait (thing-sym trait &rest value)
   (let ((thing (get-thing thing-sym)))
     (with-slots (traits (value-hash traits-value)) thing
       (when (not (member trait traits))

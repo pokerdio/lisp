@@ -141,3 +141,12 @@
       (push 'west (aref ret 0 0))
       ret)))
 
+
+
+(defun dir-abs-to-rel (dirx diry dir-sym)
+  (cdr
+   (case (+ dirx (* 2 diry))
+     (1 (assoc dir-sym '((east . forward) (north . left) (west . backward) (south . right)))) ;east
+     (-2 (assoc dir-sym '((east . right) (north . forward) (west . left) (south . backward)))) ; north
+     (-1 (assoc dir-sym '((east . backward) (north . right) (west . forward) (south . left)))) ; west
+     (2 (assoc dir-sym '((east . left) (north . backward) (west . right) (south . forward))))))) ; south
