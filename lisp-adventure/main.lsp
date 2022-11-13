@@ -11,17 +11,17 @@
 ;; ----------- ROOMS ----------
 
 (block rooms
-  (make-thing 'house-ne '(room grass beach) "You're in the yard of a small house. To the north a yellow sanded beach opens up to the sea. In the distance there's a sandy island. ")
+  (make-thing 'house-ne '(room grass hide-items beach) "You're in the yard of a small house. To the north a yellow sanded beach opens up to the sea. In the distance there's a sandy island. ")
   (make-thing 'house-s '(room) "You're in the yard of a small house. ~
 The front door of the house lies to the north. ")
-  (make-thing 'house-e '(room grass) "You're in the yard of a small house. A large oak ~
+  (make-thing 'house-e '(room grass hide-items) "You're in the yard of a small house. A large oak ~
 tree towers above, throwing a pleasant shade. ")
-  (make-thing 'house-n '(room grass beach) "You're behind a small house in the yard. ~
+  (make-thing 'house-n '(room grass hide-items beach) "You're behind a small house in the yard. ~
 There is a small wooden shed here, built against the house, its door missing. To the north a yellow sanded beach opens up to the sea. In the distance there's a sandy island. ")
-  (make-thing 'house-w '(room grass) "You're in the yard of a small house.")
-  (make-thing 'house-se '(room grass) "You're in the yard of a small house.")
-  (make-thing 'house-sw '(room grass) "You're in the yard of a small house.")
-  (make-thing 'house-nw '(room grass beach) "You're in the yard of a small house. To the north a yellow sanded beach opens up to the sea. In the distance there's a sandy island. ")
+  (make-thing 'house-w '(room grass hide-items) "You're in the yard of a small house.")
+  (make-thing 'house-se '(room grass hide-items) "You're in the yard of a small house.")
+  (make-thing 'house-sw '(room grass hide-items) "You're in the yard of a small house.")
+  (make-thing 'house-nw '(room grass hide-items beach) "You're in the yard of a small house. To the north a yellow sanded beach opens up to the sea. In the distance there's a sandy island. ")
   (make-thing 'house-attic '(room ladder-up) "You're in a small dusty room with wooden beams and planks, angled ceiling, a window. You see a collapsible ladder. ")
   (make-thing 'house '(room trapdoor-hidden) "You're inside the only room of the house. It looks much ~
 larger than you had expected. The floor is covered by a thick rug.")
@@ -42,8 +42,8 @@ tiles and opens up in a small window. ")
   (make-thing 'house-shed '(room) "You're in a small windowless timber planks shed. The ~
 construction is shoddy and some light enters through the boards. There is a work bench ~
 and a couple of shelves.")
-  (make-thing 'island '(room) "You're on the small sandy island. Golden sand dunes is everything you see. Besides the sea. ")
-  (make-thing 'labyrinth `(room (map ,(make-labyrinth))) ""))
+  (make-thing 'island '(room beach) "You're on the small sandy island. Golden sand dunes is everything you see. Besides the sea. ")
+  (make-thing 'labyrinth `(room hide-items (col 0) (row 0) (map ,(make-labyrinth))) ""))
 
 (block trails
   (trail house-e up up-tree up tree-top)
@@ -53,13 +53,14 @@ and a couple of shelves.")
   (trail house-s e house-se n house-e n house-ne w house-n w house-nw
          s house-w s house-sw e house-s n house)
   (trail-1-way cellar up house)
-  (trail-1-way house-s south labyrinth))
+  (trail-1-way house-w west labyrinth)
+  (trail-1-way house-e east labyrinth))
 
 ;; ----------- THINGS ----------
 
 (block furniture
-  (make-thing 'boat '(heavy furniture listable)
-              "A small wooden boat.")
+  (make-thing 'boat '(heavy furniture listable leaking)
+              "A small wooden boat that has seen better days.")
   (make-thing 'bird-nest '(furniture contents-visible contents-accessible)
               "The nest's a half meter wide round open topped bed of twigs. "
               :owner 'tree-east-branch)
@@ -84,11 +85,13 @@ and a couple of shelves.")
     (add-to-thing 'boat
                   (car (set-difference '(house-nw house-ne) (list dog-place))))
     (add-to-thing 'boat 'island) ; the boat is owned by two items, sue me
-    (make-thing 'bad-dog '(furniture listable grass-visible) "The surprisingly large dog is growling with rage, and getting closer step by step. "
+    (make-thing 'bad-dog '(furniture listable hide-resistant) "The surprisingly large dog is growling with rage, and getting closer step by step. "
                 :owner dog-place)
     (make-thing 'key '(pickable listable) "A small key." :owner key-place)))
 
 (block pickable
+  (make-thing 'gold-coin '(pickable listable) "A yellow shiny coin, fairly large, heavy in the hand, with a hint of softness to the bite (you tried). The faces are engraved with dunes and a pyramid."
+              :owner 'labyrinth)
   (make-thing 'metal-egg '(pickable listable) "A polished bronze ovoid, smooth and shiny except for a tiny hole."
               :owner 'bird-nest)
   (make-thing 'scythe '(pickable listable heavy) "A rather large, sharp looking scythe."
@@ -111,71 +114,107 @@ bright red and yellow geometric patterns."
 
 (block dbg
   (match-com (dbg save)
-    (game-loop)))
+             (game-loop))
+  (match-com (dbg room-trait x :room-trait x) ;TODO: recognize the bound variable in :room-trait
+    (p "trait " x " val " (trait-value *r* x) "~%"))
+  (match-com (dbg thing-trait x :thing x)
+    (p x " traits " (thing-traits x)))
+  (match-com (dbg go x :thing x room)
+    (setf *r* x)
+    (p (thing-desc *r*)))
+  (match-com (dbg take x :thing x pickable)
+    (p "taking " x " from " (thing-owner x) "~%")
+    (move-thing x (thing-owner x) 'pc)))
 
-(block-match labyrinth (:in-room labyrinth) ;on top because it's a place with its custom rules
-  (defun lab-show-path (map row col dirx diry)
-    (let* ((lst (mapcar (lambda (s) (tostr (dir-abs-to-rel dirx diry s)))
-                        (aref map row col)))
-           (n (length lst)))
-      (format t "~a ~{~a~^, ~}." (if (> n 1) "Paths open" "A path opens") lst)))
-  (match-com (* :room-trait ! on-enter :after)
-    (add-trait *r* 'on-enter)
-    (add-trait *r* 'row 0)
-    (add-trait *r* 'col 0)
-    (add-trait *r* 'dir 1 0)
-    (p "As you enter the hedge maze and admire the neatly trimmed shrubbery walls you realize you have lost your sense of geographical orientation.~%")
-    (lab-show-path (car (trait-value 'labyrinth 'map)) 0 0 1 0)
-    (continue-command))
-  (match-coms ((look) (go i) ((right left forward back)) :room-trait (map m) (row r) (col c) (dir x y) :after)
-    (p "Hedge walls everywhere. ")
-    (lab-show-path m r c x y))
+(flet ((lab-show-path (map row col dirx diry)
+         (let* ((lst (mapcar (lambda (s) (tostr (dir-abs-to-rel dirx diry s)))
+                             (aref map row col)))
+                (n (length lst)))
+           (format t "~a ~{~a~^, ~}." (if (> n 1) "Paths open" "A path opens") lst))))
+  (block-match labyrinth (:in-room labyrinth) ;on top because it's a place with its custom rules
+  
+    (match-com (* :room-trait (col c) (row r) :after)
+      (when (not (has-trait *r* 'on-enter)) ; initializing room traits upon entering from another room
+        (add-trait *r* 'on-enter)
 
-  (match-com (dbg map :room-trait (map m))
-    (p "map " m "~%"))
-  (match-com (dbg pos :room-trait (row r) (col c) (dir x y))
-    (p "row " r " col " c "dirxy " x y "~%"))
-  (match-com (dbg room-trait)
-    (p "room traits " (thing-traits *r*) "~%"))
-  (match-coms ((go (g right left forward back)) ((g right left forward back))
-               :room-trait (map m) (row r) (col c) (dir x y))
-    (case g
-      (back (psetf x (- x) y (- y)))
-      (right (psetf x (- y) y x))
-      (left (psetf x y y (- x))))
-    (let ((dir (cdr (assoc (+ x (* 2 y))
-                           '((1 . east)
-                             (-1 . west)
-                             (2 . south)
-                             (-2 . north))))))
-      (if (member dir (aref m r c))
-          (psetf r (+ r y) c (+ c x))
-          (p "Oops! You run into a bush wall blocking your way.~%")))
-    (when (or (< r 0) (>= r (array-dimension m 0))
+        (multiple-value-bind (r c)
+            (case (get-trait 'pc 'prev-room)
+              (house-e (values 0 0))
+              (house-w (values 4 4)))
+          (add-trait *r* 'row r)
+          (add-trait *r* 'col c))
+        (add-trait *r* 'dir 1 0)
+        (add-trait *r* 'hide-items)
+        (p "As you enter the hedge maze and admire the neatly trimmed shrubbery walls you realize you have lost your sense of geographical orientation.~%")
+        (lab-show-path (car (trait-value 'labyrinth 'map)) 0 0 1 0)))
+    (match-com (look :room-trait (map m) (row r) (col c) (dir x y))
+      (p "Hedge walls everywhere. ")
+      (lab-show-path m r c x y)
+      (p (thing-desc *r*)))
+    (match-com (drop *)
+      (p "Better not, you probably won't find your way back here and lose it! "))
+    (match-coms ((go (g right left forward back)) ((g right left forward back))
+                 :room-trait (map m) (row r) (col c) (dir x y))
+      (case g
+        (back (psetf x (- x) y (- y)))
+        (right (psetf x (- y) y x))
+        (left (psetf x y y (- x))))
+      (let ((dir (cdr (assoc (+ x (* 2 y))
+                             '((1 . east)
+                               (-1 . west)
+                               (2 . south)
+                               (-2 . north))))))
+        (if (member dir (aref m r c))
+            (progn
+              (psetf r (+ r y) c (+ c x))
+              (if (and (eq c 3) (eq r 3))
+                  (del-trait *r* 'hide-items)
+                  (add-trait *r* 'hide-items)))            
+            (p "Oops! You run into a bush wall blocking your way.~%")))
+      (if (or (< r 0) (>= r (array-dimension m 0))
               (< c 0) (>= c (array-dimension m 1)))
-      (p "You leave the labyrinth.")
-      (del-trait *r* 'on-enter)
-      (setf *r* 'house-s))))
-
+          (progn (p "You leave the labyrinth.~%")
+                 (del-trait *r* 'on-enter)
+                 (setf *r* 'house-s)
+                 (p (thing-desc *r*)))
+          (progn (p "Hedge walls everywhere. ")
+                 (lab-show-path m r c x y)
+                 (p (thing-desc *r*)))))))
 
 (block examine
   (match-com (look)
     (p (thing-desc *r*)))
-
   (match-coms ((look x :having x)
-               (look x :dasein x :room-trait ! grass)
-               (look x :dasein x grass-visible :room-trait grass)
-               (look x :dasein x listable heavy :room-trait grass)
+               (look x :dasein x :room-trait ! hide-items)
+               (look x :dasein x grass-visible :room-trait hide-items)
+               (look x :dasein x listable heavy :room-trait hide-items)
                (look x in y :dasein y contents-visible :inside x y))
     (p (thing-desc x))))
 
 (block-match on-the-beach (:room-trait beach)
-  (match-com (look (beach north))
-    (p "A clean, picture perfect beach, with clear greenish waves lazily crashing against it. In the distance an island beckons."))
-  (match-com ((enter launch) boat :dasein (boat leaking))
+  (match-coms ((fix boat) (fix boat hammer) (hit boat hammer)
+               :having hammer :dasein boat leaking)
+    (p "You clobber at the boat's loose nails until you're satisfied they'd hold together well enough to risk a sortie. ")
+    (setf (thing-desc 'boat)
+          "A small recently refurbished wooden boat. You admire your own handiwork with a tiny twinge of pride. ")
+    (del-trait 'boat 'leaking))
+  (match-coms ((fix boat) (fix boat hammer) (hit boat hammer)
+               :having hammer :dasein boat ! leaking)
+    (p "Enough hammering!")) 
+
+  (match-com (look (beach north) :in-room house-ne house-nw)
+    (p "A clean, picture perfect beach, with greenish waves lazily crashing against it. In the distance a sandy island beckons."))
+  (match-com (look (beach south) :in-room island)
+    (p "A clean, picture perfect beach, with greenish waves lazily crashing against it. In the distance the mainland shore shows heavy woods over the golden sand beach."))
+  
+  (match-com ((enter launch use go) boat :dasein boat leaking)
     (die "You push the boat in the water and jump in, then start rowing for the island. You notice the boat is taking in water halfway through, about as time as it occurs to you you can't swim."))
-  (match-com ((enter launch) boat :dasein (boat ! leaking))
-    (p "You push the boat in the water and jump in. Rowing to the island under the summer sun is quite enjoyable.")))
+  
+  (match-com ((enter launch use go) boat :dasein boat ! leaking)
+    (let ((other-place (car (set-difference (get-owner-list 'boat)
+                                            (list *r*)))))
+      (p "You row, row, row your boat across the sea.")
+      (setf *r* other-place))))
 
 (block room-active-effect
   (match-com (* :dasein bad-dog)
@@ -253,15 +292,8 @@ can be called that, is one sided and does not last long. ~%")))
                ((x north west east south down up)))
     (let ((new-room (find-connection x *r*)))
       (if new-room
-          (progn
-            (go-room new-room (cat "You go " x ".~%")))
+          (go-room new-room (cat "You go " x ".~%"))
           (p "You can't go there."))))
-
-  (match-com ((enter launch use) boat :dasein boat)
-    (let ((other-place (car (set-difference (get-owner-list 'boat)
-                                            (list *r*)))))
-      (p "You row, row, row your boat across the sea.")
-      (setf *r* other-place)))
 
   (match-com (go)
     (p "Go where?")))
@@ -343,16 +375,15 @@ can be called that, is one sided and does not last long. ~%")))
     (trail house-attic down house)))
 
 (block misc
-  (match-coms ((mow grass scythe)
-               (mow grass with scythe)
+  
+  (match-coms (((mow cut) grass scythe)
+               ((mow cut) grass with scythe)
                (use scythe)
                (use scythe (on with) grass)
-               (mow grass) :room-trait grass :having scythe)
+               ((mow cut) grass) :room-trait grass :having scythe)
     (p "You mow the grass.")
-    (del-trait *r* 'grass)))
-
-(match-com (foo (x aa bb cc))
-  (p x))
+    (del-trait *r* 'grass)
+    (del-trait *r* 'hide-items)))
 
 (block catch-failures
   (match-coms ((mow) (mow x :room-trait ! grass))

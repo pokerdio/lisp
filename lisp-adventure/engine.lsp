@@ -167,7 +167,12 @@ intended use with sorted lists"
      ,@(funcall body)))
 
 (defun atom-or-car (lst)
-  (mapcar #'(lambda (x) (if (consp x) (car x) x)) lst))
+  (mapcar #'(lambda (x) (let ((x (if (consp x) (car x) x)))
+                          (if (var? x)
+                              (prog1 x
+                                (assert (member x *bound-var*) nil "free vars not allowed here"))
+                              (list 'quote x))))
+          lst))
 
 ;;; TODO
 
@@ -205,7 +210,7 @@ intended use with sorted lists"
 
 (defun build-room-trait (trait-lst body)
   (let ((traits (atom-or-car trait-lst)))
-    `(when (has-traits *r* ',traits)
+    `(when (has-traits *r* (list ,@traits))
        ,@(wrap-room-data-trait-lst-match trait-lst body))))
 
 (defun quotify-traits-lst (traits)

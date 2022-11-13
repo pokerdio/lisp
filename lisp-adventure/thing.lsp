@@ -43,6 +43,8 @@
   (setf (thing-contents (get-thing thing-sym)) value))
 
 
+(defmethod has-trait ((thing null) (trait symbol) &optional value))
+
 (defmethod has-trait ((thing thing) (trait symbol) &optional value)
   (and (member trait (thing-traits thing))
        (or (not value)
@@ -50,7 +52,6 @@
 
 (defmethod has-trait ((thing-sym symbol) (trait symbol) &optional value)
   (has-trait (get-thing thing-sym) trait value))
-
 
 (defmethod trait-value ((thing thing) (trait symbol))
   (gethash trait (slot-value thing 'traits-value)))
@@ -105,6 +106,12 @@
           (exits
            (format nil "Paths lead towards")))))
 
+(defmethod (setf thing-desc) (new-desc (x thing))
+  (setf (slot-value x 'desc) (tostr new-desc)))
+
+(defmethod (setf thing-desc) (new-desc (x symbol))
+  (setf (slot-value (get-thing x) 'desc) (tostr new-desc)))
+
 (defmethod thing-desc ((x thing))
   (with-slots (name desc contents)
       x
@@ -112,10 +119,10 @@
                           (format nil "This is a ~A." (tostr name)))))
       (when (has-trait x 'room)
         (let ((listables))
-          (if (has-trait x 'grass)
-              (progn
-                (setf basic-desc (format nil "~A~%The place is overrun with overgrown grass." basic-desc))
-                (setf listables (find-thing-lst contents 'listable 'grass-visible)))
+          (when (has-trait x 'grass)
+            (setf basic-desc (format nil "~A~%The place is overrun with overgrown grass." basic-desc)))
+          (if (has-trait x 'hide-items)
+              (setf listables (find-thing-lst contents 'listable 'hide-resistant))
               (setf listables (find-thing-lst contents 'listable)))
           (dolist (i listables)
             (setf basic-desc (format nil "~A~%There is a ~A here." basic-desc

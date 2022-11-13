@@ -29,6 +29,7 @@
     (front . forward)
     (ahead . forward)
     (backward . back)
+    (coin . gold-coin)
     ))
 
 (defparameter *multi-translate*
@@ -45,11 +46,13 @@
     ((large dog) . (bad-dog))
     ((angry dog) . (bad-dog))
     ((bad dog) . (bad-dog))
+    ((gold coin) . (gold-coin))
     ((dog) . (bad-dog))))
 
 (defparameter *sym-to-str*
   '((metal-egg . "metal egg")
-    (bad-dog . "angry large dog")))
+    (bad-dog . "angry large dog")
+    (gold-coin . "gold coin")))
 
 (defparameter *go* '())
 (defparameter *command-handled* nil)
