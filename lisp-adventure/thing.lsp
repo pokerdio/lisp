@@ -129,8 +129,8 @@
                                      (tostr i)))))
         (let ((exits (thing-exits name)))
           (when exits
-            (setf basic-desc (format nil "~A~%Path~A lead to the ~A." basic-desc
-                                     (if (> (length exits) 1) "s" "")
+            (setf basic-desc (format nil "~A~%~A to the ~A." basic-desc
+                                     (if (> (length exits) 1) "Paths lead" "A path leads")
                                      (sym-lst-to-str-enum exits))))))
       (when (has-trait x 'furniture)
         (let ((listables (find-thing-lst contents 'listable)))

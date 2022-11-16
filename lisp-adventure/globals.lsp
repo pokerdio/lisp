@@ -1,6 +1,6 @@
 (defparameter *r* 'house-s)
-(defparameter *f* nil)
-(defparameter *f-after* nil)
+(defparameter *f* (list (lambda (x))))
+(defparameter *f-after* (list (lambda (x))))
 (defparameter *ignore-tokens*
   '("" "the" "an" "a"))
 

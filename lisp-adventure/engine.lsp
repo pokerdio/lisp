@@ -357,6 +357,24 @@ intended use with sorted lists"
 
 
 
+;; (defmacro match-com (pat &body body)
+;;   (let* ((after-com (member :after pat))
+;;          (flist (if after-com '*f-after* '*f*))
+;;          (body (if after-com body
+;;                    (cons '(setf *command-handled* t) body)))
+;;          (pat (keyword-wrap (remove :after pat)))
+;;          (com-sym (gensym))
+;;          (*bound-var* nil))
+;;     `(progn
+;;        (setf ,flist
+;;              (append ,flist
+;;                      (list (lambda (,com-sym)
+;;                              ;; (p "attempting match command " ',pat " <" ,com-sym "> ~%")
+;;                              ,(build-match-lambda-body com-sym pat body))))))))
+
+(defun add-rule (alist rule-lambda)
+  (setf (cdr (last alist)) (list rule-lambda)))
+
 (defmacro match-com (pat &body body)
   (let* ((after-com (member :after pat))
          (flist (if after-com '*f-after* '*f*))
@@ -366,11 +384,10 @@ intended use with sorted lists"
          (com-sym (gensym))
          (*bound-var* nil))
     `(progn
-       (setf ,flist
-             (append ,flist
-                     (list (lambda (,com-sym)
-                             ;; (p "attempting match command " ',pat " <" ,com-sym "> ~%")
-                             ,(build-match-lambda-body com-sym pat body))))))))
+       (add-rule ,flist
+                 (lambda (,com-sym)
+                   ;; (p "attempting match command " ',pat " <" ,com-sym "> ~%")
+                   ,(build-match-lambda-body com-sym pat body))))))
 
 (defun split-before-first (lst &optional (test (lambda (x) (not (consp x)))))
   (cond ((not lst) (values nil nil))
@@ -382,26 +399,6 @@ intended use with sorted lists"
   (multiple-value-bind (a b)
       (split-before-first pats)
     (mapcar (lambda (lst) (append lst b)) a)))
-
-;; (defun match-comms-unfurl (pats)
-;;   (setf pats (append pats '(())))
-;;   (let ((ret nil)
-;;         (temp nil)
-;;         (sym-buf nil))
-;;     (dolist (x pats)
-;;       (cond ((and (listp x) sym-buf)
-;;              (setf ret (append ret
-;;                                (mapcar #'(lambda (pat)
-;;                                            (append pat sym-buf))
-;;                                        temp)))
-;;              (setf temp (list x))
-;;              (setf sym-buf nil))
-;;             ((listp x)
-;;              (setf temp (append temp (list x))))
-;;             ((symbolp x)
-;;              (setf sym-buf
-;;                    (append sym-buf (list x))))))
-;;     (append ret (butlast temp))))
 
 (defmacro match-coms (pats &body body)
   (let ((pats (match-comms-unfurl pats)))

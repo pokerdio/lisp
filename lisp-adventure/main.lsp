@@ -42,7 +42,11 @@ tiles and opens up in a small window. ")
   (make-thing 'house-shed '(room) "You're in a small windowless timber planks shed. The ~
 construction is shoddy and some light enters through the boards. There is a work bench ~
 and a couple of shelves.")
-  (make-thing 'island '(room beach) "You're on the small sandy island. Golden sand dunes is everything you see. Besides the sea. ")
+  (make-thing 'island '(room beach) "You're on the beach of a sandy island. ~
+Sand dunes extend northward, to the south there's a strait. ")
+
+  (make-thing 'desert '(room) "You see nothing but sand dunes in every direction. ~
+You hope really hard you remember the way back.")
   (make-thing 'labyrinth `(room hide-items (col 0) (row 0) (map ,(make-labyrinth))) ""))
 
 (block trails
@@ -53,6 +57,8 @@ and a couple of shelves.")
   (trail house-s e house-se n house-e n house-ne w house-n w house-nw
          s house-w s house-sw e house-s n house)
   (trail-1-way cellar up house)
+  (trail-1-way island north desert)
+  (trail-1-way pyramid south island)
   (trail-1-way house-w west labyrinth)
   (trail-1-way house-e east labyrinth))
 
@@ -90,7 +96,7 @@ and a couple of shelves.")
     (make-thing 'key '(pickable listable) "A small key." :owner key-place)))
 
 (block pickable
-  (make-thing 'gold-coin '(pickable listable) "A yellow shiny coin, fairly large, heavy in the hand, with a hint of softness to the bite (you tried). The faces are engraved with dunes and a pyramid."
+  (make-thing 'gold-coin '(pickable listable) "A yellow shiny coin, fairly large, heavy in the hand, with a hint of softness to the bite (you tried). On one face is engraved a pyramid, on the opposite face there are sand dunes."
               :owner 'labyrinth)
   (make-thing 'metal-egg '(pickable listable) "A polished bronze ovoid, smooth and shiny except for a tiny hole."
               :owner 'bird-nest)
@@ -107,24 +113,36 @@ bright red and yellow geometric patterns."
 ;; ----------- COMMANDS ----------
 
 (match-com (*)
-  (when (not (eq (trait-value 'pc 'this-room) *r*))
-    (add-trait 'pc 'prev-room (trait-value 'pc 'this-room))
+  (when (not (equal (trait-value 'pc 'this-room) (list *r*)))
+    (add-trait 'pc 'prev-room (car (trait-value 'pc 'this-room)))
     (add-trait 'pc 'this-room *r*))
   (continue-command))
 
 (block dbg
   (match-com (dbg save)
-             (game-loop))
+    (game-loop))
+
+  (match-com (dbg foo)
+    (p "foo bar baaz~%"))
   (match-com (dbg room-trait x :room-trait x) ;TODO: recognize the bound variable in :room-trait
     (p "trait " x " val " (trait-value *r* x) "~%"))
   (match-com (dbg thing-trait x :thing x)
     (p x " traits " (thing-traits x)))
+  (match-com (dbg trait-val x v :thing x)
+    (if (has-trait x v)
+        (p "thing " x " trait " v ":" (trait-value x v))
+        (p "thing " x " does not have the trait " v)))  
   (match-com (dbg go x :thing x room)
     (setf *r* x)
     (p (thing-desc *r*)))
   (match-com (dbg take x :thing x pickable)
     (p "taking " x " from " (thing-owner x) "~%")
     (move-thing x (thing-owner x) 'pc)))
+
+(block-match desert (:in-room desert)
+  (match-com (* :room-trait ! on-arrival :after)
+    (add-trait *r* 'on-arrival)
+    (p "~%")))
 
 (flet ((lab-show-path (map row col dirx diry)
          (let* ((lst (mapcar (lambda (s) (tostr (dir-abs-to-rel dirx diry s)))
@@ -133,18 +151,19 @@ bright red and yellow geometric patterns."
            (format t "~a ~{~a~^, ~}." (if (> n 1) "Paths open" "A path opens") lst))))
   (block-match labyrinth (:in-room labyrinth) ;on top because it's a place with its custom rules
   
-    (match-com (* :room-trait (col c) (row r) :after)
+    (match-com (* :after)
       (when (not (has-trait *r* 'on-enter)) ; initializing room traits upon entering from another room
         (add-trait *r* 'on-enter)
 
-        (multiple-value-bind (r c)
-            (case (get-trait 'pc 'prev-room)
-              (house-e (values 0 0))
-              (house-w (values 4 4)))
+        (multiple-value-bind (r c dx dy)
+            (case (car (trait-value 'pc 'this-room))
+              (house-e (values 0 0 1 0))
+              (house-w (values 4 4 -1 0))
+              (t (assert nil nil "bad room before labyrinth")))
           (add-trait *r* 'row r)
-          (add-trait *r* 'col c))
-        (add-trait *r* 'dir 1 0)
-        (add-trait *r* 'hide-items)
+          (add-trait *r* 'col c)
+          (add-trait *r* 'dir dx dy)
+          (add-trait *r* 'hide-items))
         (p "As you enter the hedge maze and admire the neatly trimmed shrubbery walls you realize you have lost your sense of geographical orientation.~%")
         (lab-show-path (car (trait-value 'labyrinth 'map)) 0 0 1 0)))
     (match-com (look :room-trait (map m) (row r) (col c) (dir x y))
@@ -175,7 +194,7 @@ bright red and yellow geometric patterns."
               (< c 0) (>= c (array-dimension m 1)))
           (progn (p "You leave the labyrinth.~%")
                  (del-trait *r* 'on-enter)
-                 (setf *r* 'house-s)
+                 (setf *r* (car (trait-value 'pc 'prev-room))) 
                  (p (thing-desc *r*)))
           (progn (p "Hedge walls everywhere. ")
                  (lab-show-path m r c x y)
@@ -375,7 +394,12 @@ can be called that, is one sided and does not last long. ~%")))
     (trail house-attic down house)))
 
 (block misc
-  
+  (match-com ((flip throw) gold-coin :having gold-coin :in-room island)
+    (p "You flip the coin. The pyramid side is face up."))
+  (match-com ((flip throw) gold-coin :having gold-coin)
+    (p "You flip the coin. The "
+       (elt '(pyramid dunes) (random 2))
+       " side is face up."))
   (match-coms (((mow cut) grass scythe)
                ((mow cut) grass with scythe)
                (use scythe)
