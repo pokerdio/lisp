@@ -22,7 +22,7 @@
                    (mapcar #'(lambda (accessor)
                                `(defmethod ,accessor ((sym symbol))
                                   (let ((thing (get-thing sym)))
-                                    (,accessor thing))))
+                                    (when thing (,accessor thing)))))
                            accessors))))
   (thing-sym-reader thing-name thing-description thing-traits thing-owner thing-contents))
 
@@ -189,20 +189,22 @@
       (setf (thing-contents thing)
             (cons item (thing-contents thing))))))
 
+(defmethod copy-thing ((thing symbol))
+  (copy-thing (get-thing thing)))
 
-(defun copy-thing (thing)
-  (assert (eq (type-of thing) 'thing))
-  (let* ((ret (make-instance 'thing
+(defmethod copy-thing ((thing thing))
+  (assert (typep thing 'thing))
+  (let* ((ret (make-instance (type-of thing)
                              :name (thing-name thing)
                              :description (thing-description thing)
-                             :traits (copy-list (thing-traits thing))
+                             :traits (copy-tree (thing-traits thing))
                              :owner (thing-owner thing)
-                             :contents (copy-list (thing-contents thing))))
+                             :contents (copy-thing-tree (thing-contents thing))))
          (old-hash (slot-value thing 'traits-value))
          (new-hash (slot-value ret 'traits-value )))
     (loop for key being each hash-key of old-hash
           do (setf (gethash key new-hash)
-                   (copy-list (gethash key old-hash))))
+                   (copy-tree (gethash key old-hash))))
     ret))
 
 
@@ -210,15 +212,14 @@
   (cond ((consp tree)
          (cons (copy-thing-tree (car tree))
                (copy-thing-tree (cdr tree))))
-        ((eq (type-of tree) 'thing)
+        ((typep tree 'thing)
          (copy-thing tree))
         (t tree)))
 
 (defmacro with-saved-game-globals (&body body)
   `(let ,(mapcar #'(lambda (x) `(,x (copy-thing-tree ,x)))
                  '(*r* *go* *things* *death*))
-     (let ((*command-handled* nil)
-           (*bound-var* nil))
+     (let ((*command-handled* nil))
       ,@body)))
 
 (defun tostr (sym)
@@ -228,8 +229,8 @@
        (string-downcase (string sym))
        sym)))
 
-(defun make-thing (sym traits desc &key (contents nil) (owner nil))
-  (returning ret (make-instance 'thing
+(defun make-thing (sym traits desc &key (owner nil) (thing-class 'thing)  (contents nil))
+  (returning ret (make-instance thing-class
                                 :name sym
                                 :traits (mapcar #'(lambda (x) (if (consp x) (car x) x))
                                                 traits)
@@ -252,3 +253,13 @@
 (defun find-thing-lst (thing-sym-lst &rest traits)
   (loop for sym in thing-sym-lst
         when (has-traits sym traits) collect sym))
+
+;---------------------------------------------------------------------------
+
+(defclass pyramid (thing) nil)
+
+(defmethod thing-desc ((p pyramid))
+  (let ((pos (car (trait-value p 'pos)))
+        (tree (trait-value p 'choice-tree)))
+    (second (assoc pos tree))))
+

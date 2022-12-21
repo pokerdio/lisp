@@ -16,6 +16,11 @@
         when (and (eq d dir) (eq r1 room))
           return r2))
 
+(defun replace-connection (old new)
+  (assert (eq (length old) 3) nil "inputs must be lists of a source, a direction, a destination")
+  (iflet it (member old *go* :test #'equal)
+      (setf (car it) new)))
+
 (defun connect-1-way (place1 dir place2)
   (setf dir (trans dir))
   (setf *go* (cons (list dir place1 place2) *go*)))

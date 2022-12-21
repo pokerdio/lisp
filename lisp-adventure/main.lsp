@@ -1,7 +1,9 @@
 (declaim #+sbcl(sb-ext:muffle-conditions cl:style-warning))
 
+(setf *default-pathname-defaults* (truename "~/test/lisp/lisp-adventure"))
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (load (compile-file "util.lsp"))
+  (load (compile-file "util.lsp"))  
   (load (compile-file "globals.lsp"))
   (load (compile-file "thing.lsp"))
   (load (compile-file "engine.lsp")))
@@ -21,8 +23,10 @@ There is a small wooden shed here, built against the house, its door missing. To
   (make-thing 'house-w '(room grass hide-items) "You're in the yard of a small house.")
   (make-thing 'house-se '(room grass hide-items) "You're in the yard of a small house.")
   (make-thing 'house-sw '(room grass hide-items) "You're in the yard of a small house.")
-  (make-thing 'house-nw '(room grass hide-items beach) "You're in the yard of a small house. To the north a yellow sanded beach opens up to the sea. In the distance there's a sandy island. ")
-  (make-thing 'house-attic '(room ladder-up) "You're in a small dusty room with wooden beams and planks, angled ceiling, a window. You see a collapsible ladder. ")
+  (make-thing 'house-nw '(room grass hide-items beach) "You're in the yard of a small house. To ~
+the north a yellow sanded beach opens up to the sea. In the distance there's a sandy island. ")
+  (make-thing 'house-attic '(room ladder-up) "You're in a small dusty room with wooden beams and ~
+planks, angled ceiling, a window. You see a collapsible ladder. ")
   (make-thing 'house '(room trapdoor-hidden) "You're inside the only room of the house. It looks much ~
 larger than you had expected. The floor is covered by a thick rug.")
   (make-thing 'cellar '(room) "You're inside a small, dark cellar with brick walls ~
@@ -36,7 +40,8 @@ upward, with enough sub-branches to gain a foothold. ")
 treetops of an old growth forest in every direction. ")
   (make-thing 'tree-east-branch '(room tree) "You're up in the tree, amongs lots of branches, ~
 standing on a really large one. There's a large bird's nest here. ")
-  (make-thing 'tree-west-branch '(room tree window-closed window-intact) "You're up in the tree, walking along a thick ~
+  (make-thing 'tree-west-branch '(room tree window-closed window-intact)
+              "You're up in the tree, walking along a thick ~
 branch. The branch rests on the roof of the house. The roof is covered by red clay ~
 tiles and opens up in a small window. ")
   (make-thing 'house-shed '(room) "You're in a small windowless timber planks shed. The ~
@@ -45,9 +50,17 @@ and a couple of shelves.")
   (make-thing 'island '(room beach) "You're on the beach of a sandy island. ~
 Sand dunes extend northward, to the south there's a strait. ")
 
-  (make-thing 'desert '(room) "You see nothing but sand dunes in every direction. ~
+  (make-thing 'desert '(room (path ())
+                        (good-path (north east north west north)))
+              "You see nothing but sand dunes in every direction. ~
 You hope really hard you remember the way back.")
+  (make-thing 'outside-pyramid '(room) "A three stories high pyramid built out of one ~
+feet stone blocks comes out of the sand. At ground level there's a tunnel entering the pyramid. ")
+
+  (make-thing 'pyramid '(room (data home empty)) "" :thing-class 'pyramid)
+  
   (make-thing 'labyrinth `(room hide-items (col 0) (row 0) (map ,(make-labyrinth))) ""))
+
 
 (block trails
   (trail house-e up up-tree up tree-top)
@@ -58,7 +71,7 @@ You hope really hard you remember the way back.")
          s house-w s house-sw e house-s n house)
   (trail-1-way cellar up house)
   (trail-1-way island north desert)
-  (trail-1-way pyramid south island)
+  (trail-1-way outside-pyramid south island)
   (trail-1-way house-w west labyrinth)
   (trail-1-way house-e east labyrinth))
 
@@ -118,10 +131,15 @@ bright red and yellow geometric patterns."
     (add-trait 'pc 'this-room *r*))
   (continue-command))
 
+(match-com (drop * :in-room (labyrinth desert pyramid))
+  (p "Better not, you probably won't find your way back here and lose it! "))
+
 (block dbg
   (match-com (dbg save)
     (game-loop))
 
+  (match-com (dbg go)
+    (p *go*))
   (match-com (dbg foo)
     (p "foo bar baaz~%"))
   (match-com (dbg room-trait x :room-trait x) ;TODO: recognize the bound variable in :room-trait
@@ -139,11 +157,59 @@ bright red and yellow geometric patterns."
     (p "taking " x " from " (thing-owner x) "~%")
     (move-thing x (thing-owner x) 'pc)))
 
+
+(block-match pyramid (:in-room pyramid)
+  (match-com ((go enter left right) * :room-trait (data p w) :after)
+    (p " On the wall in front of you you see pictograms: ~%    ")
+    (case p
+      (home (p "An abstract human, arms low. A house. A spear. A sword. ~%~
+Tunnels open up to the right and left, marked by more pictograms. ~%~
+Above the left tunnel: a spear. ~%Above the right tunnel: a sword."))
+      (garden (p "An abstract human, arms low. ")
+       (case w
+         (sword (p "A sword. "))
+         (spear (p "A spear. ")))
+       (p "~%Tunnels open up to the right and left, marked by more pictograms, sadly faded and illegible. "))))
+  (match-coms ((go (d left right)) 
+               ((d left right))
+               :room-trait (data p w))
+    (case p
+      (home (cond ((eq d 'left)
+                   (p "You go left.")
+                   (setf w 'spear p 'garden))
+                  ((eq d 'right)
+                   (p "You go right.")
+                   (setf w 'sword p 'garden))))
+      (garden (p "You go ~A. " d))))
+  ;; (match-com (go (x left right) :room-trait (pos home))
+  ;;   (p "You go through the " x " door.")
+  ;;   (setf p (case x
+  ;;             (right (fourth choice))
+  ;;             (left (third choice)))))
+  )
+
 (block-match desert (:in-room desert)
   (match-com (* :room-trait ! on-arrival :after)
-    (add-trait *r* 'on-arrival)
-    (p "~%")))
-
+    (add-trait *r* 'on-arrival))
+  (match-coms ((south) (go south) :room-trait (path nil))
+    (p "You make it back to the island shore.")
+    (setf *r* 'island))
+  (match-coms ((go (x north east west south))
+               ((x north east west south))
+               :room-trait (path p) :room-trait (good-path g))
+    (cond ((not p)
+           (setf p (list x))
+           (p "You make your way through the dunes."))
+          ((eq (car (last p)) (reverse-dir x))
+           (setf p (butlast p))
+           (p "You make your way through the dunes."))
+          (t (setf p (append p (list x)))
+             (if (equal g p)
+                 (progn
+                   (go-room 'outside-pyramid "You find your way out of the sand into a flat area. ")
+                   (replace-connection '(north island desert) '(north island pyramid)))
+                 (p "You make your way through the dunes."))))))
+;; labyrinth block
 (flet ((lab-show-path (map row col dirx diry)
          (let* ((lst (mapcar (lambda (s) (tostr (dir-abs-to-rel dirx diry s)))
                              (aref map row col)))
@@ -170,9 +236,9 @@ bright red and yellow geometric patterns."
       (p "Hedge walls everywhere. ")
       (lab-show-path m r c x y)
       (p (thing-desc *r*)))
-    (match-com (drop *)
-      (p "Better not, you probably won't find your way back here and lose it! "))
-    (match-coms ((go (g right left forward back)) ((g right left forward back))
+
+    (match-coms ((go (g right left forward back))
+                 ((g right left forward back))
                  :room-trait (map m) (row r) (col c) (dir x y))
       (case g
         (back (psetf x (- x) y (- y)))
@@ -272,6 +338,10 @@ can be called that, is one sided and does not last long. ~%")))
   (p "...waiting..."))
 
 (block movement
+  (match-coms ((go (in pyramid tunnel)) (enter (pyramid tunnel)) (enter) :in-room outside-pyramid)
+    (p "You step through the narrow tunnel cut in the stone blocks. As you enter a room, a stone door silently moves into place, blocking your exit.")
+    (setf *r* 'pyramid))
+  
   (match-coms ((enter shed) (enter) :in-room house-n)
     (p "You step through the door opening into the shed.")
     (setf *r* 'house-shed))
@@ -394,6 +464,13 @@ can be called that, is one sided and does not last long. ~%")))
     (trail house-attic down house)))
 
 (block misc
+  (match-com ((flip throw) gold-coin :having gold-coin :in-room desert
+                                     :room-trait (path p) :room-trait (good-path g))
+    (if (or (not p)
+            (and (<= (length p) (length g))
+                 (equal p (subseq g 0 (length p)))))
+        (p "You flip the coin. The pyramid side is face up.")
+        (p "You flip the coin. The dunes side is face up.")))
   (match-com ((flip throw) gold-coin :having gold-coin :in-room island)
     (p "You flip the coin. The pyramid side is face up."))
   (match-com ((flip throw) gold-coin :having gold-coin)
@@ -418,6 +495,7 @@ can be called that, is one sided and does not last long. ~%")))
     (p "Can't see that."))
   (match-com (*)
     (p "Huh?")))
+
 
 
 
