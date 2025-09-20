@@ -4,7 +4,7 @@
   (:export :render-range-to-tex))
 (in-package :range-tex)
 
-;(defparameter *ranks* (reverse '("A" "K" "Q" "J" "T" "9" "8" "7" "6" "5" "4" "3" "2")))
+(defparameter *ranks* (reverse '("A" "K" "Q" "J" "T" "9" "8" "7" "6" "5" "4" "3" "2")))
 
 (defparameter *ranks* (reverse '("A" "K" "Q" "J" "T")))
 
